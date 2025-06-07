@@ -1,0 +1,31 @@
+type Booking {
+    id: ID!
+    userId: ID!
+    tourId: ID!
+    status: BookingStatus!
+    departureDate: String!
+    totalCost: Float!
+}
+
+enum BookingStatus {
+    PENDING
+    CONFIRMED
+    CANCELLED
+}
+
+input BookingInput {
+    userId: ID!
+    tourId: ID!
+    departureDate: String!
+    totalCost: Float!
+}
+
+type Query {
+    getBooking(id: ID!): Booking
+    getUserBookings(userId: ID!): [Booking]!
+}
+
+type Mutation {
+    createBooking(input: BookingInput!): Booking!
+    updateBookingStatus(id: ID!, status: BookingStatus!): Booking!
+}

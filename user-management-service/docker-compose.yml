@@ -1,0 +1,27 @@
+version: '3.8'
+services:
+  user-service:
+    build: .
+    ports:
+      - '3001:3001'
+    depends_on:
+      - db
+    environment:
+      DB_NAME: userdb
+      DB_USER: postgres
+      DB_PASSWORD: yourpassword
+      DB_HOST: db
+      DB_PORT: 5432
+      JWT_SECRET: your_jwt_secret
+
+  db:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_DB: userdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: yourpassword
+    ports:
+      - '5432:5432'
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql

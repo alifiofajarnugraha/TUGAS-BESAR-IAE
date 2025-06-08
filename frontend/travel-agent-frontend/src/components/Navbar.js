@@ -123,6 +123,16 @@ function Navbar() {
                 Login
               </Button>
             )}
+            {user && user.role === "admin" && (
+              <Button
+                color="inherit"
+                component={RouterLink}
+                to="/admin/tour-packages"
+                sx={{ textTransform: "none" }}
+              >
+                Admin Panel
+              </Button>
+            )}
           </Box>
         </Toolbar>
       </Container>

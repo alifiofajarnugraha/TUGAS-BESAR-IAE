@@ -6,8 +6,11 @@ services:
       - "3002:3002"
     environment:
       - MONGO_URI=mongodb://db:27017/tourdb
+      - PORT=3002
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    restart: unless-stopped
 
   db:
     image: mongo:5
@@ -15,6 +18,11 @@ services:
       - "27017:27017"
     volumes:
       - mongodb_tour_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   mongodb_tour_data:

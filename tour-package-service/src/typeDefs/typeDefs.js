@@ -1,110 +1,14 @@
 // src/typeDefs/index.js
 // Definisi schema GraphQL dasar untuk Tour Package Service
 
-const { gql } = require('apollo-server-express');
+const { gql } = require("graphql-tag");
 
 const typeDefs = gql`
-  input TourFilterInput {
-    status: String
-    city: String
-    minPrice: Int
-    maxPrice: Int
-  }
-
-  input TourPackageInput {
-    name: String!
-    slug: String!
-    short_description: String!
-    long_description: String!
-    status: String!
-    category: String
-    location: LocationInput!
-    duration: DurationInput!
-    price: PriceInput!
-    inclusions: [String!]!
-    exclusions: [String!]!
-    itinerary: [ItineraryInput!]!
-    average_rating: Float
-    review_count: Int
-    availability: [AvailabilityInput!]
-    tour_operator_id: String!
-  }
-
-  input TourPackageUpdateInput {
-    name: String
-    slug: String
-    short_description: String
-    long_description: String
-    status: String
-    category: String
-    location: LocationInput
-    duration: DurationInput
-    price: PriceInput
-    inclusions: [String!]
-    exclusions: [String!]
-    itinerary: [ItineraryInput!]
-    average_rating: Float
-    review_count: Int
-    availability: [AvailabilityInput!]
-    tour_operator_id: String
-  }
-
-  input LocationInput {
-    city: String!
-    province: String!
-    country: String!
-    meeting_point: String!
-  }
-
-  input DurationInput {
-    days: Int!
-    nights: Int!
-  }
-
-  input PriceInput {
-    amount: Int!
-    currency: String!
-    per_pax: Boolean!
-  }
-
-  input ItineraryInput {
-    day: Int!
-    title: String!
-    description: String!
-    activities: [String!]!
-  }
-
-  input AvailabilityInput {
-    start_date: String!
-    end_date: String!
-    slots_available: Int!
-  }
-
-  type TourPackage {
-    id: ID!
-    name: String!
-    slug: String!
-    short_description: String!
-    long_description: String!
-    status: String!
-    category: String
-    location: Location!
-    duration: Duration!
-    price: Price!
-    inclusions: [String!]!
-    exclusions: [String!]!
-    itinerary: [Itinerary!]!
-    average_rating: Float
-    review_count: Int
-    availability: [Availability!]
-    tour_operator_id: String!
-  }
-
   type Location {
     city: String!
     province: String!
     country: String!
-    meeting_point: String!
+    meetingPoint: String
   }
 
   type Duration {
@@ -113,32 +17,88 @@ const typeDefs = gql`
   }
 
   type Price {
-    amount: Int!
+    amount: Float!
     currency: String!
-    per_pax: Boolean!
   }
 
-  type Itinerary {
+  type TourPackage {
+    id: ID!
+    name: String!
+    category: String!
+    shortDescription: String!
+    longDescription: String
+    location: Location!
+    duration: Duration!
+    price: Price!
+    maxParticipants: Int!
+    inclusions: [String]
+    exclusions: [String]
+    itinerary: [ItineraryDay]
+    images: [String]
+    status: String!
+    createdAt: String
+    updatedAt: String
+  }
+
+  type ItineraryDay {
     day: Int!
     title: String!
     description: String!
     activities: [String!]!
   }
 
-  type Availability {
-    start_date: String!
-    end_date: String!
-    slots_available: Int!
+  input LocationInput {
+    city: String!
+    province: String!
+    country: String!
+    meetingPoint: String
+  }
+
+  input DurationInput {
+    days: Int!
+    nights: Int!
+  }
+
+  input PriceInput {
+    amount: Float!
+    currency: String!
+  }
+
+  input ItineraryDayInput {
+    day: Int!
+    title: String!
+    description: String!
+    activities: [String!]!
+  }
+
+  input TourPackageInput {
+    name: String!
+    category: String!
+    shortDescription: String!
+    longDescription: String
+    location: LocationInput!
+    duration: DurationInput!
+    price: PriceInput!
+    maxParticipants: Int!
+    inclusions: [String]
+    exclusions: [String]
+    itinerary: [ItineraryDayInput]
+    images: [String]
+    status: String
   }
 
   type Query {
-    getTourPackages(filter: TourFilterInput): [TourPackage]
+    getTourPackages: [TourPackage!]!
     getTourPackage(id: ID!): TourPackage
+    getTourPackagesByCategory(category: String!): [TourPackage!]!
+    searchTourPackages(keyword: String!): [TourPackage!]!
   }
 
   type Mutation {
-    createTourPackage(input: TourPackageInput!): TourPackage
-    updateTourPackage(id: ID!, input: TourPackageUpdateInput!): TourPackage
+    createTourPackage(input: TourPackageInput!): TourPackage!
+    updateTourPackage(id: ID!, input: TourPackageInput!): TourPackage!
+    deleteTourPackage(id: ID!): TourPackage
+    updateTourStatus(id: ID!, status: String!): TourPackage!
   }
 `;
 

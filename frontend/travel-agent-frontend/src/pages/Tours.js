@@ -26,6 +26,24 @@ function Tours() {
     client: tourService,
   });
 
+  // Debug log untuk melihat data yang diterima
+  React.useEffect(() => {
+    if (toursData?.getTourPackages) {
+      console.log("Tours data received:", toursData.getTourPackages);
+      toursData.getTourPackages.forEach((tour, index) => {
+        console.log(`Tour ${index + 1}:`, {
+          name: tour.name,
+          images: tour.images,
+          imagesCount: tour.images ? tour.images.length : 0,
+          firstImage:
+            tour.images && tour.images.length > 0
+              ? tour.images[0].substring(0, 50) + "..."
+              : "No image",
+        });
+      });
+    }
+  }, [toursData]);
+
   if (toursLoading) {
     return (
       <Box
@@ -49,11 +67,42 @@ function Tours() {
     );
   }
 
+  // Function untuk handle image dengan better fallback
+  const getImageSrc = (tour) => {
+    if (tour.images && tour.images.length > 0) {
+      const firstImage = tour.images[0];
+      // Check if it's a valid base64 data URL
+      if (firstImage.startsWith("data:image/")) {
+        return firstImage;
+      }
+      // Check if it's a regular URL
+      if (firstImage.startsWith("http")) {
+        return firstImage;
+      }
+    }
+
+    // Fallback to placeholder
+    return `https://picsum.photos/800/600?random=${tour.id}`;
+  };
+
+  const handleImageError = (e, tour) => {
+    console.error(`Image error for tour ${tour.name}:`, e);
+    // Try different fallbacks
+    if (e.target.src.includes("picsum")) {
+      e.target.src = `https://via.placeholder.com/800x600/2196F3/white?text=${encodeURIComponent(
+        tour.name
+      )}`;
+    } else {
+      e.target.src = `https://picsum.photos/800/600?random=${tour.id}`;
+    }
+  };
+
   return (
     <Container sx={{ py: 8 }} maxWidth="lg">
       <Typography variant="h3" gutterBottom align="center">
         Available Tour Packages
       </Typography>
+
       <Grid container spacing={4}>
         {toursData?.getTourPackages.map((tour) => (
           <Grid item key={tour.id} xs={12} sm={6} md={4}>
@@ -71,17 +120,23 @@ function Tours() {
               <CardMedia
                 component="img"
                 height="200"
-                image={`https://source.unsplash.com/800x600/?${tour.location.city}`}
+                image={getImageSrc(tour)}
                 alt={tour.name}
+                onError={(e) => handleImageError(e, tour)}
+                sx={{
+                  objectFit: "cover",
+                  bgcolor: "grey.200", // Fallback background
+                }}
               />
               <CardContent sx={{ flexGrow: 1 }}>
                 <Typography gutterBottom variant="h5" component="h2">
                   {tour.name}
                 </Typography>
-                <Typography>{tour.short_description}</Typography>
+                <Typography>{tour.shortDescription}</Typography>
+
                 <Box sx={{ mt: 2 }}>
                   <Typography variant="h6" color="primary">
-                    {tour.price.currency} {tour.price.amount}
+                    {tour.price.currency} {tour.price.amount.toLocaleString()}
                   </Typography>
                   <Typography variant="subtitle2" color="text.secondary">
                     {tour.duration.days} Days {tour.duration.nights} Nights

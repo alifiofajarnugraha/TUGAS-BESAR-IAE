@@ -1,4 +1,4 @@
-const { gql } = require("apollo-server-express");
+const { gql } = require("graphql-tag"); // Gunakan graphql-tag sebagai gantinya
 
 module.exports = gql`
   type User {
@@ -29,7 +29,7 @@ module.exports = gql`
   type Query {
     getUser(id: ID!): User
     users: [User!]!
-    getCurrentUser: User # Tambahkan query ini
+    getCurrentUser: User
   }
 
   type Mutation {

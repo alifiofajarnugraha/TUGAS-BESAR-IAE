@@ -17,6 +17,8 @@ import Register from "./pages/Register";
 import Tours from "./pages/Tours";
 import BookingPage from "./pages/BookingPage";
 import Profile from "./pages/Profile";
+import AdminTourPackages from "./pages/admin/AdminTourPackages";
+import TourPackageForm from "./pages/admin/TourPackageForm";
 
 const theme = createTheme({
   palette: {
@@ -61,6 +63,30 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Profile />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/tour-packages"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminTourPackages />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/tour-packages/create"
+              element={
+                <ProtectedRoute adminOnly>
+                  <TourPackageForm />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/tour-packages/edit/:id"
+              element={
+                <ProtectedRoute adminOnly>
+                  <TourPackageForm />
                 </ProtectedRoute>
               }
             />

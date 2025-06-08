@@ -1,202 +1,144 @@
 // src/resolvers/resolvers.js
 // Resolvers dasar untuk Tour Package Service
 
+const TourPackage = require("../models/TourPackage");
+const mongoose = require("mongoose");
+
 const resolvers = {
   Query: {
-    getTourPackages: (parent, { filter }) => {
-      // Untuk demo, filter diabaikan, return data dummy
-      return [
-        {
-          id: 'a1b2c3d4-e5f6-7890-g1h2-i3j4k5l6m7n8',
-          name: 'Paket Petualangan 3 Hari 2 Malam di Bromo & Ijen',
-          slug: 'paket-petualangan-bromo-ijen-3d2n',
-          short_description: 'Petualangan seru ke Bromo & Ijen selama 3 hari 2 malam.',
-          long_description: 'Nikmati pengalaman tak terlupakan menjelajahi Bromo dan Ijen dengan fasilitas lengkap dan itinerary menarik.',
-          status: 'published',
-          category: 'Adventure', // kategori destinasi
-          location: {
-            city: 'Malang',
-            province: 'Jawa Timur',
-            country: 'Indonesia',
-            meeting_point: 'Stasiun Kota Baru Malang',
-          },
-          duration: {
-            days: 3,
-            nights: 2,
-          },
-          price: {
-            amount: 1500000,
-            currency: 'IDR',
-            per_pax: true,
-          },
-          inclusions: [
-            'Transportasi AC',
-            'Jeep Bromo',
-            'Tiket Masuk Wisata',
-            'Akomodasi 1 Malam',
-            'Air Mineral'
-          ],
-          exclusions: [
-            'Makan Siang & Malam',
-            'Pengeluaran Pribadi',
-            'Tips untuk Guide & Driver'
-          ],
-          itinerary: [
-            {
-              day: 1,
-              title: 'Penjemputan & Perjalanan Menuju Bromo',
-              description: 'Anda akan dijemput di Malang, lalu perjalanan menuju hotel di area Bromo. Sore hari acara bebas.',
-              activities: [
-                'Jemput di meeting point',
-                'Makan siang (biaya pribadi)',
-                'Check-in hotel'
-              ]
-            },
-            {
-              day: 2,
-              title: 'Wisata Bromo',
-              description: 'Menikmati sunrise di Penanjakan, explore Kawah Bromo, dan Savana.',
-              activities: [
-                'Sunrise di Penanjakan',
-                'Kawah Bromo',
-                'Bukit Teletubbies',
-                'Kembali ke hotel'
-              ]
-            },
-            {
-              day: 3,
-              title: 'Ijen Blue Fire & Kembali',
-              description: 'Pendakian ke Kawah Ijen untuk melihat blue fire, lalu kembali ke Malang.',
-              activities: [
-                'Pendakian Kawah Ijen',
-                'Blue Fire',
-                'Kembali ke Malang'
-              ]
-            }
-          ],
-          average_rating: 4.8,
-          review_count: 120,
-          availability: [
-            {
-              start_date: '2025-12-20',
-              end_date: '2025-12-22',
-              slots_available: 10
-            },
-            {
-              start_date: '2026-01-10',
-              end_date: '2026-01-12',
-              slots_available: 8
-            }
-          ],
-          tour_operator_id: 'operator-123',
-        }
-      ];
+    getTourPackages: async () => {
+      try {
+        return await TourPackage.find({}).sort({ createdAt: -1 });
+      } catch (error) {
+        throw new Error(`Error fetching tour packages: ${error}`);
+      }
     },
-    getTourPackage: (parent, { id }) => {
-      // Data dummy sama seperti di atas
-      const data = [
-        {
-          id: 'a1b2c3d4-e5f6-7890-g1h2-i3j4k5l6m7n8',
-          name: 'Paket Petualangan 3 Hari 2 Malam di Bromo & Ijen',
-          slug: 'paket-petualangan-bromo-ijen-3d2n',
-          short_description: 'Petualangan seru ke Bromo & Ijen selama 3 hari 2 malam.',
-          long_description: 'Nikmati pengalaman tak terlupakan menjelajahi Bromo dan Ijen dengan fasilitas lengkap dan itinerary menarik.',
-          status: 'published',
-          category: 'Adventure', // kategori destinasi
-          location: {
-            city: 'Malang',
-            province: 'Jawa Timur',
-            country: 'Indonesia',
-            meeting_point: 'Stasiun Kota Baru Malang',
-          },
-          duration: {
-            days: 3,
-            nights: 2,
-          },
-          price: {
-            amount: 1500000,
-            currency: 'IDR',
-            per_pax: true,
-          },
-          inclusions: [
-            'Transportasi AC',
-            'Jeep Bromo',
-            'Tiket Masuk Wisata',
-            'Akomodasi 1 Malam',
-            'Air Mineral'
-          ],
-          exclusions: [
-            'Makan Siang & Malam',
-            'Pengeluaran Pribadi',
-            'Tips untuk Guide & Driver'
-          ],
-          itinerary: [
-            {
-              day: 1,
-              title: 'Penjemputan & Perjalanan Menuju Bromo',
-              description: 'Anda akan dijemput di Malang, lalu perjalanan menuju hotel di area Bromo. Sore hari acara bebas.',
-              activities: [
-                'Jemput di meeting point',
-                'Makan siang (biaya pribadi)',
-                'Check-in hotel'
-              ]
-            },
-            {
-              day: 2,
-              title: 'Wisata Bromo',
-              description: 'Menikmati sunrise di Penanjakan, explore Kawah Bromo, dan Savana.',
-              activities: [
-                'Sunrise di Penanjakan',
-                'Kawah Bromo',
-                'Bukit Teletubbies',
-                'Kembali ke hotel'
-              ]
-            },
-            {
-              day: 3,
-              title: 'Ijen Blue Fire & Kembali',
-              description: 'Pendakian ke Kawah Ijen untuk melihat blue fire, lalu kembali ke Malang.',
-              activities: [
-                'Pendakian Kawah Ijen',
-                'Blue Fire',
-                'Kembali ke Malang'
-              ]
-            }
-          ],
-          average_rating: 4.8,
-          review_count: 120,
-          availability: [
-            {
-              start_date: '2025-12-20',
-              end_date: '2025-12-22',
-              slots_available: 10
-            },
-            {
-              start_date: '2026-01-10',
-              end_date: '2026-01-12',
-              slots_available: 8
-            }
-          ],
-          tour_operator_id: 'operator-123',
+
+    getTourPackage: async (_, { id }) => {
+      try {
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+          throw new Error("Invalid tour package ID");
         }
-      ];
-      return data.find(pkg => pkg.id === id) || null;
+
+        const tourPackage = await TourPackage.findById(id);
+        if (!tourPackage) {
+          throw new Error(`Tour package with ID ${id} not found`);
+        }
+
+        return tourPackage;
+      } catch (error) {
+        throw new Error(`Error fetching tour package: ${error}`);
+      }
+    },
+
+    getTourPackagesByCategory: async (_, { category }) => {
+      try {
+        return await TourPackage.find({ category });
+      } catch (error) {
+        throw new Error(`Error fetching tour packages by category: ${error}`);
+      }
+    },
+
+    searchTourPackages: async (_, { keyword }) => {
+      try {
+        const regex = new RegExp(keyword, "i");
+        return await TourPackage.find({
+          $or: [
+            { name: { $regex: regex } },
+            { shortDescription: { $regex: regex } },
+            { "location.city": { $regex: regex } },
+            { "location.country": { $regex: regex } },
+            { category: { $regex: regex } },
+          ],
+        });
+      } catch (error) {
+        throw new Error(`Error searching tour packages: ${error}`);
+      }
     },
   },
+
   Mutation: {
-    createTourPackage: (parent, { input }) => {
-      // Untuk demo, return input sebagai hasil
-      return {
-        id: 'dummy-id',
-        ...input
-      };
+    createTourPackage: async (_, { input }) => {
+      try {
+        const newTourPackage = new TourPackage({
+          ...input,
+          status: input.status || "active",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+
+        return await newTourPackage.save();
+      } catch (error) {
+        throw new Error(`Error creating tour package: ${error}`);
+      }
     },
-    updateTourPackage: (parent, { id, input }) => {
-      // Untuk demo, return input sebagai hasil update
-      return {
-        id,
-        ...input
-      };
+
+    updateTourPackage: async (_, { id, input }) => {
+      try {
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+          throw new Error("Invalid tour package ID");
+        }
+
+        const updatedTourPackage = await TourPackage.findByIdAndUpdate(
+          id,
+          { ...input, updatedAt: new Date().toISOString() },
+          { new: true, runValidators: true }
+        );
+
+        if (!updatedTourPackage) {
+          throw new Error(`Tour package with ID ${id} not found`);
+        }
+
+        return updatedTourPackage;
+      } catch (error) {
+        throw new Error(`Error updating tour package: ${error}`);
+      }
+    },
+
+    deleteTourPackage: async (_, { id }) => {
+      try {
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+          throw new Error("Invalid tour package ID");
+        }
+
+        const deletedTourPackage = await TourPackage.findByIdAndDelete(id);
+        if (!deletedTourPackage) {
+          throw new Error(`Tour package with ID ${id} not found`);
+        }
+
+        return deletedTourPackage;
+      } catch (error) {
+        throw new Error(`Error deleting tour package: ${error}`);
+      }
+    },
+
+    updateTourStatus: async (_, { id, status }) => {
+      try {
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+          throw new Error("Invalid tour package ID");
+        }
+
+        const validStatuses = ["active", "inactive", "soldout"];
+        if (!validStatuses.includes(status)) {
+          throw new Error(
+            `Invalid status. Must be one of: ${validStatuses.join(", ")}`
+          );
+        }
+
+        const updatedTourPackage = await TourPackage.findByIdAndUpdate(
+          id,
+          { status, updatedAt: new Date().toISOString() },
+          { new: true }
+        );
+
+        if (!updatedTourPackage) {
+          throw new Error(`Tour package with ID ${id} not found`);
+        }
+
+        return updatedTourPackage;
+      } catch (error) {
+        throw new Error(`Error updating tour status: ${error}`);
+      }
     },
   },
 };

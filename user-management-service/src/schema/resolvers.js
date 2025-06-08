@@ -6,14 +6,13 @@ module.exports = {
   Query: {
     getUser: async (_, { id }) => await User.findByPk(id),
     users: async () => await User.findAll(),
-    getCurrentUser: async (_, __, { token }) => {
-      if (!token) {
+    getCurrentUser: async (_, __, context) => {
+      if (!context.user) {
         throw new Error("Authentication required");
       }
 
       try {
-        const decoded = verifyToken(token.replace("Bearer ", ""));
-        const user = await User.findByPk(decoded.id);
+        const user = await User.findByPk(context.user.id);
 
         if (!user) {
           throw new Error("User not found");
@@ -21,7 +20,7 @@ module.exports = {
 
         return user;
       } catch (error) {
-        throw new Error("Invalid token");
+        throw new Error("Invalid token or user not found");
       }
     },
   },

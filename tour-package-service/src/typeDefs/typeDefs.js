@@ -21,6 +21,28 @@ const typeDefs = gql`
     currency: String!
   }
 
+  type AvailableDate {
+    date: String!
+    slots: Int!
+    price: Price
+  }
+
+  type InventoryStatus {
+    tourId: String!
+    date: String!
+    slotsLeft: Int!
+    hotelAvailable: Boolean!
+    transportAvailable: Boolean!
+  }
+
+  type AvailabilityCheck {
+    available: Boolean!
+    message: String!
+    slotsLeft: Int
+    hotelAvailable: Boolean
+    transportAvailable: Boolean
+  }
+
   type TourPackage {
     id: ID!
     name: String!
@@ -36,8 +58,15 @@ const typeDefs = gql`
     itinerary: [ItineraryDay]
     images: [String]
     status: String!
+    defaultSlots: Int
+    hotelRequired: Boolean
+    transportRequired: Boolean
+    availableDates: [AvailableDate]
     createdAt: String
     updatedAt: String
+    # Fields yang ditambahkan untuk inventory integration
+    inventoryStatus: [InventoryStatus]
+    isAvailable: Boolean
   }
 
   type ItineraryDay {
@@ -64,6 +93,12 @@ const typeDefs = gql`
     currency: String!
   }
 
+  input AvailableDateInput {
+    date: String!
+    slots: Int!
+    price: PriceInput
+  }
+
   input ItineraryDayInput {
     day: Int!
     title: String!
@@ -85,6 +120,10 @@ const typeDefs = gql`
     itinerary: [ItineraryDayInput]
     images: [String]
     status: String
+    defaultSlots: Int
+    hotelRequired: Boolean
+    transportRequired: Boolean
+    availableDates: [AvailableDateInput]
   }
 
   type Query {
@@ -92,6 +131,14 @@ const typeDefs = gql`
     getTourPackage(id: ID!): TourPackage
     getTourPackagesByCategory(category: String!): [TourPackage!]!
     searchTourPackages(keyword: String!): [TourPackage!]!
+    # New inventory-related queries
+    checkTourAvailability(
+      tourId: ID!
+      date: String!
+      participants: Int!
+    ): AvailabilityCheck!
+    getTourInventoryStatus(tourId: ID!): [InventoryStatus!]!
+    getAvailableTours(date: String!, participants: Int!): [TourPackage!]!
   }
 
   type Mutation {
@@ -99,6 +146,18 @@ const typeDefs = gql`
     updateTourPackage(id: ID!, input: TourPackageInput!): TourPackage!
     deleteTourPackage(id: ID!): TourPackage
     updateTourStatus(id: ID!, status: String!): TourPackage!
+    # New inventory-related mutations
+    initializeTourInventory(
+      tourId: ID!
+      dates: [AvailableDateInput!]!
+    ): Boolean!
+    updateTourInventory(
+      tourId: ID!
+      date: String!
+      slots: Int!
+      hotelAvailable: Boolean
+      transportAvailable: Boolean
+    ): Boolean!
   }
 `;
 

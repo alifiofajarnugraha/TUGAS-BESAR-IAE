@@ -18,18 +18,50 @@ import {
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
+import InventoryIcon from "@mui/icons-material/Inventory2";
 import { useQuery, useMutation } from "@apollo/client";
-import { QUERIES, MUTATIONS, tourService } from "../../services/api";
+import { gql } from "@apollo/client";
+import { MUTATIONS, tourService } from "../../services/api";
 import { useNavigate } from "react-router-dom";
+import InventoryManagementModal from "../../components/InventoryManagementModal"; // Buat komponen ini di langkah 2
+
+// Simple query untuk admin
+const GET_ADMIN_TOURS = gql`
+  query GetAdminTours {
+    getTourPackages {
+      id
+      name
+      category
+      shortDescription
+      location {
+        city
+        province
+        country
+      }
+      duration {
+        days
+        nights
+      }
+      price {
+        amount
+        currency
+      }
+      status
+      createdAt
+      updatedAt
+    }
+  }
+`;
 
 function AdminTourPackages() {
   const navigate = useNavigate();
-  const { loading, error, data, refetch } = useQuery(
-    QUERIES.GET_TOUR_PACKAGES,
-    {
-      client: tourService,
-    }
-  );
+  const { loading, error, data, refetch } = useQuery(GET_ADMIN_TOURS, {
+    client: tourService,
+    errorPolicy: "all", // Show partial data even with errors
+    onError: (error) => {
+      console.error("Admin query error:", error);
+    },
+  });
 
   const [deleteTourPackage] = useMutation(MUTATIONS.DELETE_TOUR_PACKAGE, {
     client: tourService,
@@ -40,6 +72,8 @@ function AdminTourPackages() {
       console.error("Delete error:", error);
     },
   });
+
+  const [selectedTour, setSelectedTour] = useState(null);
 
   // Define the handleDelete function
   const handleDelete = async (id) => {
@@ -63,6 +97,7 @@ function AdminTourPackages() {
         minHeight="80vh"
       >
         <CircularProgress />
+        <Typography sx={{ ml: 2 }}>Loading tour packages...</Typography>
       </Box>
     );
 
@@ -72,8 +107,23 @@ function AdminTourPackages() {
         <Alert severity="error">
           Error loading tour packages: {error.message}
         </Alert>
+        <Box sx={{ mt: 2 }}>
+          <Button variant="outlined" onClick={() => refetch()}>
+            Retry
+          </Button>
+          <Button
+            variant="outlined"
+            sx={{ ml: 2 }}
+            onClick={() => window.location.reload()}
+          >
+            Reload Page
+          </Button>
+        </Box>
       </Container>
     );
+
+  // Debug log
+  console.log("Admin tours data:", data);
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
@@ -107,27 +157,50 @@ function AdminTourPackages() {
           </TableHead>
           <TableBody>
             {data?.getTourPackages?.map((tour) => (
-              <TableRow key={tour.id}>
-                <TableCell>{tour.name}</TableCell>
-                <TableCell>{tour.category}</TableCell>
-                <TableCell>{`${tour.location.city}, ${tour.location.country}`}</TableCell>
-                <TableCell>{`${tour.price.currency} ${tour.price.amount}`}</TableCell>
-                <TableCell>{tour.status}</TableCell>
+              <TableRow key={tour.id || Math.random()}>
+                <TableCell>{tour.name || "Unknown"}</TableCell>
+                <TableCell>{tour.category || "Unknown"}</TableCell>
+                <TableCell>
+                  {tour.location
+                    ? `${tour.location.city || "Unknown"}, ${
+                        tour.location.country || "Unknown"
+                      }`
+                    : "Unknown Location"}
+                </TableCell>
+                <TableCell>
+                  {tour.price
+                    ? `${tour.price.currency || "IDR"} ${
+                        tour.price.amount || 0
+                      }`
+                    : "No Price"}
+                </TableCell>
+                <TableCell>{tour.status || "Unknown"}</TableCell>
                 <TableCell>
                   <IconButton
                     onClick={() =>
                       navigate(`/admin/tour-packages/edit/${tour.id}`)
                     }
+                    disabled={!tour.id}
                   >
                     <EditIcon />
                   </IconButton>
-                  <IconButton onClick={() => handleDelete(tour.id)}>
+                  <IconButton
+                    onClick={() => handleDelete(tour.id)}
+                    disabled={!tour.id}
+                  >
                     <DeleteIcon />
+                  </IconButton>
+                  <IconButton
+                    onClick={() => setSelectedTour(tour)}
+                    disabled={!tour.id}
+                    title="Manage Inventory"
+                  >
+                    <InventoryIcon />
                   </IconButton>
                 </TableCell>
               </TableRow>
             ))}
-            {data?.getTourPackages?.length === 0 && (
+            {(!data?.getTourPackages || data.getTourPackages.length === 0) && (
               <TableRow>
                 <TableCell colSpan={6} align="center">
                   No tour packages found
@@ -137,6 +210,15 @@ function AdminTourPackages() {
           </TableBody>
         </Table>
       </TableContainer>
+
+      {/* Inventory Management Modal */}
+      {selectedTour && (
+        <InventoryManagementModal
+          open={!!selectedTour}
+          onClose={() => setSelectedTour(null)}
+          tour={selectedTour}
+        />
+      )}
     </Container>
   );
 }

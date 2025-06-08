@@ -143,6 +143,7 @@ export const QUERIES = {
     }
   `,
 
+  // Updated query dengan conditional fields
   GET_TOUR_PACKAGES: gql`
     query GetTourPackages {
       getTourPackages {
@@ -165,6 +166,14 @@ export const QUERIES = {
         }
         images
         status
+        # Inventory fields - akan di-comment dulu jika belum ready
+        inventoryStatus {
+          date
+          slotsLeft
+          hotelAvailable
+          transportAvailable
+        }
+        isAvailable
       }
     }
   `,
@@ -202,6 +211,14 @@ export const QUERIES = {
         }
         images
         status
+        # Optional inventory fields
+        isAvailable
+        inventoryStatus {
+          date
+          slotsLeft
+          hotelAvailable
+          transportAvailable
+        }
       }
     }
   `,
@@ -239,6 +256,57 @@ export const QUERIES = {
           amount
           currency
         }
+      }
+    }
+  `,
+
+  CHECK_TOUR_AVAILABILITY: gql`
+    query CheckTourAvailability(
+      $tourId: ID!
+      $date: String!
+      $participants: Int!
+    ) {
+      checkTourAvailability(
+        tourId: $tourId
+        date: $date
+        participants: $participants
+      ) {
+        available
+        message
+        slotsLeft
+        hotelAvailable
+        transportAvailable
+      }
+    }
+  `,
+
+  GET_INVENTORY_STATUS: gql`
+    query GetInventoryStatus($tourId: String!) {
+      getInventoryStatus(tourId: $tourId) {
+        date
+        slotsLeft
+        hotelAvailable
+        transportAvailable
+      }
+    }
+  `,
+
+  GET_AVAILABLE_TOURS: gql`
+    query GetAvailableTours($date: String!, $participants: Int!) {
+      getAvailableTours(date: $date, participants: $participants) {
+        id
+        name
+        category
+        shortDescription
+        location {
+          city
+          country
+        }
+        price {
+          amount
+          currency
+        }
+        images
       }
     }
   `,
@@ -362,6 +430,27 @@ export const MUTATIONS = {
       updateTourStatus(id: $id, status: $status) {
         id
         status
+      }
+    }
+  `,
+
+  INITIALIZE_TOUR_INVENTORY: gql`
+    mutation InitializeTourInventory(
+      $tourId: ID!
+      $dates: [AvailableDateInput!]!
+    ) {
+      initializeTourInventory(tourId: $tourId, dates: $dates)
+    }
+  `,
+
+  UPDATE_INVENTORY: gql`
+    mutation UpdateInventory($input: InventoryInput!) {
+      updateInventory(input: $input) {
+        tourId
+        date
+        slots
+        hotelAvailable
+        transportAvailable
       }
     }
   `,

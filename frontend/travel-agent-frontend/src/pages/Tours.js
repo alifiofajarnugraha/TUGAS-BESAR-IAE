@@ -3,61 +3,132 @@ import { useQuery } from "@apollo/client";
 import {
   Container,
   Grid,
-  Card,
-  CardContent,
-  CardMedia,
   Typography,
-  Button,
   Box,
   CircularProgress,
   Alert,
+  Button,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { tourService } from "../services/api";
-import { QUERIES } from "../services/api";
+import { gql } from "@apollo/client";
+import TourCard from "../components/TourCard";
+
+// Simple query without inventory fields as fallback
+const SIMPLE_TOURS_QUERY = gql`
+  query GetToursSimple {
+    getTourPackages {
+      id
+      name
+      category
+      shortDescription
+      location {
+        city
+        province
+        country
+      }
+      duration {
+        days
+        nights
+      }
+      price {
+        amount
+        currency
+      }
+      images
+      status
+    }
+  }
+`;
+
+// Full query with inventory fields
+const FULL_TOURS_QUERY = gql`
+  query GetToursWithInventory {
+    getTourPackages {
+      id
+      name
+      category
+      shortDescription
+      location {
+        city
+        province
+        country
+      }
+      duration {
+        days
+        nights
+      }
+      price {
+        amount
+        currency
+      }
+      images
+      status
+      inventoryStatus {
+        date
+        slotsLeft
+        hotelAvailable
+        transportAvailable
+      }
+      isAvailable
+    }
+  }
+`;
 
 function Tours() {
   const navigate = useNavigate();
+  const [useSimpleQuery, setUseSimpleQuery] = React.useState(false);
+
+  // Try full query first, fallback to simple if fails
   const {
     loading: toursLoading,
     error: toursError,
     data: toursData,
-  } = useQuery(QUERIES.GET_TOUR_PACKAGES, {
+    refetch,
+  } = useQuery(useSimpleQuery ? SIMPLE_TOURS_QUERY : FULL_TOURS_QUERY, {
     client: tourService,
+    fetchPolicy: "cache-and-network",
+    errorPolicy: "all",
+    onError: (error) => {
+      console.error("Query error:", error);
+      // If inventory fields cause error, fallback to simple query
+      if (error.message.includes("Cannot query field") && !useSimpleQuery) {
+        console.log("Falling back to simple query...");
+        setUseSimpleQuery(true);
+      }
+    },
   });
 
   // Debug log untuk melihat data yang diterima
   React.useEffect(() => {
     if (toursData?.getTourPackages) {
       console.log("Tours data received:", toursData.getTourPackages);
-      toursData.getTourPackages.forEach((tour, index) => {
-        console.log(`Tour ${index + 1}:`, {
-          name: tour.name,
-          images: tour.images,
-          imagesCount: tour.images ? tour.images.length : 0,
-          firstImage:
-            tour.images && tour.images.length > 0
-              ? tour.images[0].substring(0, 50) + "..."
-              : "No image",
-        });
-      });
+      console.log("Using simple query:", useSimpleQuery);
     }
-  }, [toursData]);
+  }, [toursData, useSimpleQuery]);
+
+  // Retry with full query
+  const retryWithInventory = () => {
+    setUseSimpleQuery(false);
+    refetch();
+  };
 
   if (toursLoading) {
     return (
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minHeight="80vh"
-      >
-        <CircularProgress />
-      </Box>
+      <Container sx={{ py: 8 }} maxWidth="lg">
+        <Box
+          display="flex"
+          justifyContent="center"
+          alignItems="center"
+          minHeight="60vh"
+        >
+          <CircularProgress size={60} />
+        </Box>
+      </Container>
     );
   }
 
-  if (toursError) {
+  if (toursError && useSimpleQuery) {
     return (
       <Container sx={{ mt: 4 }}>
         <Alert severity="error">
@@ -67,97 +138,73 @@ function Tours() {
     );
   }
 
-  // Function untuk handle image dengan better fallback
-  const getImageSrc = (tour) => {
-    if (tour.images && tour.images.length > 0) {
-      const firstImage = tour.images[0];
-      // Check if it's a valid base64 data URL
-      if (firstImage.startsWith("data:image/")) {
-        return firstImage;
-      }
-      // Check if it's a regular URL
-      if (firstImage.startsWith("http")) {
-        return firstImage;
-      }
-    }
-
-    // Fallback to placeholder
-    return `https://picsum.photos/800/600?random=${tour.id}`;
-  };
-
-  const handleImageError = (e, tour) => {
-    console.error(`Image error for tour ${tour.name}:`, e);
-    // Try different fallbacks
-    if (e.target.src.includes("picsum")) {
-      e.target.src = `https://via.placeholder.com/800x600/2196F3/white?text=${encodeURIComponent(
-        tour.name
-      )}`;
-    } else {
-      e.target.src = `https://picsum.photos/800/600?random=${tour.id}`;
-    }
-  };
+  const tours = toursData?.getTourPackages || [];
 
   return (
     <Container sx={{ py: 8 }} maxWidth="lg">
-      <Typography variant="h3" gutterBottom align="center">
-        Available Tour Packages
-      </Typography>
+      {/* Header */}
+      <Box sx={{ textAlign: "center", mb: 6 }}>
+        <Typography
+          variant="h3"
+          gutterBottom
+          sx={{
+            fontWeight: 700,
+            background: "linear-gradient(45deg, #1976d2 30%, #21cbf3 90%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            mb: 2,
+          }}
+        >
+          Available Tour Packages
+        </Typography>
+        <Typography variant="h6" color="text.secondary">
+          Discover amazing destinations with our curated tour packages
+        </Typography>
 
-      <Grid container spacing={4}>
-        {toursData?.getTourPackages.map((tour) => (
-          <Grid item key={tour.id} xs={12} sm={6} md={4}>
-            <Card
-              sx={{
-                height: "100%",
-                display: "flex",
-                flexDirection: "column",
-                "&:hover": {
-                  transform: "scale(1.02)",
-                  transition: "all 0.2s ease-in-out",
-                },
-              }}
-            >
-              <CardMedia
-                component="img"
-                height="200"
-                image={getImageSrc(tour)}
-                alt={tour.name}
-                onError={(e) => handleImageError(e, tour)}
-                sx={{
-                  objectFit: "cover",
-                  bgcolor: "grey.200", // Fallback background
-                }}
-              />
-              <CardContent sx={{ flexGrow: 1 }}>
-                <Typography gutterBottom variant="h5" component="h2">
-                  {tour.name}
-                </Typography>
-                <Typography>{tour.shortDescription}</Typography>
+        {/* Stats and Controls */}
+        <Box sx={{ mt: 3 }}>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+            {tours.length} tour{tours.length !== 1 ? "s" : ""} available
+          </Typography>
 
-                <Box sx={{ mt: 2 }}>
-                  <Typography variant="h6" color="primary">
-                    {tour.price.currency} {tour.price.amount.toLocaleString()}
-                  </Typography>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    {tour.duration.days} Days {tour.duration.nights} Nights
-                  </Typography>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    {tour.location.city}, {tour.location.country}
-                  </Typography>
-                </Box>
-                <Button
-                  variant="contained"
-                  fullWidth
-                  sx={{ mt: 2 }}
-                  onClick={() => navigate(`/book/${tour.id}`)}
-                >
-                  Book Now
-                </Button>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+          {useSimpleQuery && (
+            <Box sx={{ mb: 2 }}>
+              <Alert severity="info" sx={{ mb: 1 }}>
+                Inventory features not available. Showing basic tour
+                information.
+              </Alert>
+              <Button variant="outlined" onClick={retryWithInventory}>
+                Retry with Inventory Data
+              </Button>
+            </Box>
+          )}
+        </Box>
+      </Box>
+
+      {/* Tours Grid */}
+      {tours.length > 0 ? (
+        <Grid container spacing={4}>
+          {tours.map((tour) => (
+            <Grid item key={tour.id} xs={12} sm={6} md={4}>
+              <TourCard tour={tour} />
+            </Grid>
+          ))}
+        </Grid>
+      ) : (
+        <Box
+          sx={{
+            textAlign: "center",
+            py: 8,
+          }}
+        >
+          <Typography variant="h5" color="text.secondary" gutterBottom>
+            No tours available
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Check back later for new tour packages!
+          </Typography>
+        </Box>
+      )}
     </Container>
   );
 }

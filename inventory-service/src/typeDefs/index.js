@@ -1,61 +1,70 @@
-const { gql } = require('apollo-server-express');
+const { gql } = require("graphql-tag");
 
 const typeDefs = gql`
-type Availability {
-  available: Boolean!
-  message: String!
-}
+  type AvailabilityCheck {
+    available: Boolean!
+    message: String!
+  }
 
-input ReservationInput {
-  tourId: ID! 
-  date: String!
-  participants: Int!
-}
+  type InventoryStatus {
+    tourId: String!
+    date: String!
+    slotsLeft: Int!
+    hotelAvailable: Boolean!
+    transportAvailable: Boolean!
+  }
 
-type Reservation {
-  success: Boolean!
-  message: String!
-}
+  type ReservationResult {
+    success: Boolean!
+    message: String!
+    reservationId: String
+  }
 
-type InventoryStatus {
-  tourId: ID!
-  date: String!
-  slotsLeft: Int!
-  hotelAvailable: Boolean!
-  transportAvailable: Boolean!
-}
+  type DeleteResult {
+    success: Boolean!
+    message: String!
+  }
 
-input InventoryUpdateInput {
-  tourId: ID!
-  date: String!
-  slots: Int
-  hotelAvailable: Boolean
-  transportAvailable: Boolean
-}
+  type Inventory {
+    id: ID!
+    tourId: String!
+    date: String!
+    slots: Int!
+    hotelAvailable: Boolean!
+    transportAvailable: Boolean!
+    createdAt: String
+    updatedAt: String
+  }
 
-type Inventory {
-  tourId: ID!
-  date: String!
-  slots: Int!
-  hotelAvailable: Boolean!
-  transportAvailable: Boolean!
-}
+  input ReservationInput {
+    tourId: String!
+    date: String!
+    participants: Int!
+  }
 
-type DeleteResponse {
-  success: Boolean!
-  message: String!
-}
+  input InventoryInput {
+    tourId: String!
+    date: String!
+    slots: Int
+    hotelAvailable: Boolean
+    transportAvailable: Boolean
+  }
 
-type Query {
-  checkAvailability(tourId: ID!, date: String!, participants: Int!): Availability
-  getInventoryStatus(tourId: ID!): [InventoryStatus]
-}
+  type Query {
+    checkAvailability(
+      tourId: String!
+      date: String!
+      participants: Int!
+    ): AvailabilityCheck!
+    getInventoryStatus(tourId: String!): [InventoryStatus!]!
+    getAllInventory: [Inventory!]!
+  }
 
-type Mutation {
-  reserveSlots(input: ReservationInput!): Reservation
-  updateInventory(input: InventoryUpdateInput!): Inventory
-  deleteTour(tourId: ID!): DeleteResponse
-}
+  type Mutation {
+    reserveSlots(input: ReservationInput!): ReservationResult!
+    updateInventory(input: InventoryInput!): Inventory!
+    deleteTour(tourId: String!): DeleteResult!
+  }
 `;
 
 module.exports = typeDefs;

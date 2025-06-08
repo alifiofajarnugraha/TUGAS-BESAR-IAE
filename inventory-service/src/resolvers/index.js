@@ -1,101 +1,89 @@
-const Inventory = require('../models/Inventory');
-const axios = require('axios');
+const Inventory = require("../models/Inventory");
 
 module.exports = {
   Query: {
+    // Cek ketersediaan slot, hotel, transport untuk 1 tour pada 1 tanggal
     checkAvailability: async (_, { tourId, date, participants }) => {
-      const inventory = await Inventory.findOne({ tourId, date });
-      if (!inventory) {
+      const inv = await Inventory.findOne({ tourId, date });
+      if (!inv) {
+        return { available: false, message: "No inventory for this date" };
+      }
+      if (inv.slots < participants) {
         return {
           available: false,
-          message: 'Tour not found for the specified date'
+          message: `Only ${inv.slots} slots left`,
         };
       }
-      return {
-        available: inventory.slots >= participants,
-        message: inventory.slots >= participants 
-          ? 'Slots available' 
-          : 'Not enough slots available'
-      };
+      return { available: true, message: "Available" };
     },
 
+    // List status inventory untuk 1 tour (semua tanggal)
     getInventoryStatus: async (_, { tourId }) => {
-      const inventories = await Inventory.find({ tourId });
-      return inventories.map(inv => ({
+      const invs = await Inventory.find({ tourId });
+      return invs.map((inv) => ({
         tourId: inv.tourId,
         date: inv.date,
         slotsLeft: inv.slots,
         hotelAvailable: inv.hotelAvailable,
-        transportAvailable: inv.transportAvailable
+        transportAvailable: inv.transportAvailable,
       }));
-    }
+    },
+
+    // List semua inventory (untuk admin)
+    getAllInventory: async () => {
+      return await Inventory.find({});
+    },
   },
 
   Mutation: {
+    // Update/Set inventory (slot, hotel, transport) untuk 1 tour pada 1 tanggal
+    updateInventory: async (_, { input }) => {
+      const { tourId, date, slots, hotelAvailable, transportAvailable } = input;
+      const inv = await Inventory.findOneAndUpdate(
+        { tourId, date },
+        {
+          $set: {
+            slots,
+            hotelAvailable,
+            transportAvailable,
+            updatedAt: new Date().toISOString(),
+          },
+          $setOnInsert: {
+            createdAt: new Date().toISOString(),
+          },
+        },
+        { new: true, upsert: true }
+      );
+      return inv;
+    },
+
+    // Real-time: Reserve slot (kurangi slot saat booking)
     reserveSlots: async (_, { input }) => {
       const { tourId, date, participants } = input;
-      const inventory = await Inventory.findOne({ tourId, date });
-      
-      if (!inventory) {
-        return {
-          success: false,
-          message: 'Tour not found for the specified date'
-        };
+      const inv = await Inventory.findOne({ tourId, date });
+      if (!inv) {
+        return { success: false, message: "No inventory for this date" };
       }
-
-      if (inventory.slots < participants) {
-        return {
-          success: false,
-          message: 'Not enough slots available'
-        };
+      if (inv.slots < participants) {
+        return { success: false, message: "Not enough slots" };
       }
-
-      inventory.slots -= participants;
-      await inventory.save();
-
+      inv.slots -= participants;
+      inv.updatedAt = new Date().toISOString();
+      await inv.save();
       return {
         success: true,
-        message: 'Reservation successful',
-        reservationId: `${tourId}-${date}-${Date.now()}`
+        message: "Reservation successful",
+        reservationId: `${tourId}-${date}-${Date.now()}`,
       };
     },
 
-    updateInventory: async (_, { input }) => {
-      const { tourId, date, slots, hotelAvailable, transportAvailable } = input;
-      const updateData = {};
-      
-      if (slots !== undefined) updateData.slots = slots;
-      if (hotelAvailable !== undefined) updateData.hotelAvailable = hotelAvailable;
-      if (transportAvailable !== undefined) updateData.transportAvailable = transportAvailable;
-
-      const inventory = await Inventory.findOneAndUpdate(
-        { tourId, date },
-        { $set: updateData },
-        { new: true, upsert: true }
-      );
-
-      return inventory;
-    },
-
+    // Hapus semua inventory untuk 1 tour
     deleteTour: async (_, { tourId }) => {
-      try {
-        const result = await Inventory.deleteMany({ tourId });
-        if (result.deletedCount > 0) {
-          return {
-            success: true,
-            message: `Successfully deleted tour ${tourId}`
-          };
-        }
-        return {
-          success: false,
-          message: `Tour ${tourId} not found`
-        };
-      } catch (error) {
-        return {
-          success: false,
-          message: `Error deleting tour: ${error.message}`
-        };
-      }
-    }
-  }
+      const res = await Inventory.deleteMany({ tourId });
+      return {
+        success: res.deletedCount > 0,
+        message: res.deletedCount > 0 ? "Deleted" : "Not found",
+      };
+    },
+  },
 };

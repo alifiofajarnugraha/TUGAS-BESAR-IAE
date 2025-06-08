@@ -96,11 +96,10 @@ const tourPackageSchema = new mongoose.Schema({
     },
   ],
   images: {
-    type: [String], // Array of image URLs
+    type: [String],
     default: [],
     validate: {
       validator: function (images) {
-        // Validate URLs if needed
         return images.every(
           (url) => typeof url === "string" && url.trim().length > 0
         );
@@ -114,6 +113,37 @@ const tourPackageSchema = new mongoose.Schema({
     enum: ["active", "inactive", "soldout"],
     default: "active",
   },
+  // New fields for inventory integration
+  defaultSlots: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  hotelRequired: {
+    type: Boolean,
+    default: true,
+  },
+  transportRequired: {
+    type: Boolean,
+    default: true,
+  },
+  availableDates: [
+    {
+      date: {
+        type: Date,
+        required: true,
+      },
+      slots: {
+        type: Number,
+        required: true,
+        min: 0,
+      },
+      price: {
+        amount: Number,
+        currency: String,
+      },
+    },
+  ],
   createdAt: {
     type: String,
   },

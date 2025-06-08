@@ -1,20 +1,20 @@
-version: '3.8'
+version: "3.8"
 services:
-  tour-package-service:
+  tour-service:
     build: .
     ports:
       - "3002:3002"
     environment:
-      - MONGO_URI=mongodb://tour-package-mongo:27017/tourPackageDB
+      - MONGO_URI=mongodb://db:27017/tourdb
     depends_on:
-      - tour-package-mongo
+      - db
 
-  tour-package-mongo:
+  db:
     image: mongo:5
     ports:
-      - "27018:27017"
+      - "27017:27017"
     volumes:
-      - tour-package-data:/data/db
+      - mongodb_tour_data:/data/db
 
 volumes:
-  tour-package-data:
+  mongodb_tour_data:

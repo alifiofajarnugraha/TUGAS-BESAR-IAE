@@ -1,4 +1,4 @@
-const { gql } = require('apollo-server-express');
+const { gql } = require("apollo-server-express");
 
 module.exports = gql`
   type User {
@@ -12,7 +12,7 @@ module.exports = gql`
     name: String!
     email: String!
     password: String!
-    role: String!    # ditambahkan supaya bisa input role saat registrasi
+    role: String!
   }
 
   input UserUpdateInput {
@@ -29,6 +29,7 @@ module.exports = gql`
   type Query {
     getUser(id: ID!): User
     users: [User!]!
+    getCurrentUser: User # Tambahkan query ini
   }
 
   type Mutation {

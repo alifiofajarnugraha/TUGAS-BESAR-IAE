@@ -1,36 +1,27 @@
-version: '3.8'
+version: "3.8"
 services:
   inventory-service:
     build: .
     ports:
       - "3005:3005"
     environment:
-      - MONGO_URI=mongodb://inventory-mongo:27017/inventoryDB
-      - NODE_ENV=development
-      - PORT=3005
+      - MONGO_URI=mongodb://db:27017/inventorydb
     depends_on:
-      - inventory-mongo
-    volumes:
-      - .:/app
-      - /app/node_modules
-    command: node src/index.js
+      - db
     restart: unless-stopped
-    networks:
-      - inventory-network
 
-  inventory-mongo:
+  db:
     image: mongo:5
     ports:
-      - "27018:27017"
+      - "27019:27017"
     volumes:
-      - inventory-data:/data/db
+      - mongodb_inventory_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     restart: unless-stopped
-    networks:
-      - inventory-network
-
-networks:
-  inventory-network:
-    driver: bridge
 
 volumes:
-  inventory-data:
+  mongodb_inventory_data:

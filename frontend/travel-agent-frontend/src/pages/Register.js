@@ -10,18 +10,8 @@ import {
   Link,
   Alert,
 } from "@mui/material";
-import { useMutation, gql } from "@apollo/client";
-
-const REGISTER_MUTATION = gql`
-  mutation Register($input: UserInput!) {
-    createUser(input: $input) {
-      id
-      name
-      email
-      role
-    }
-  }
-`;
+import { useMutation } from "@apollo/client";
+import { MUTATIONS, userService } from "../services/api";
 
 function Register() {
   const navigate = useNavigate();
@@ -33,7 +23,8 @@ function Register() {
   });
   const [error, setError] = useState("");
 
-  const [register, { loading }] = useMutation(REGISTER_MUTATION, {
+  const [register, { loading }] = useMutation(MUTATIONS.REGISTER, {
+    client: userService, // Specify the client
     onCompleted: () => {
       navigate("/login", {
         state: { message: "Registration successful! Please login." },
@@ -68,7 +59,7 @@ function Register() {
             name: formData.name,
             email: formData.email,
             password: formData.password,
-            role: "customer", // Default role for new registrations
+            role: "customer",
           },
         },
       });

@@ -1,37 +1,35 @@
 version: "3.8"
 services:
-  user-service:
+  booking-service:
     build: .
     ports:
-      - "3001:3001"
+      - "3003:3003"
     environment:
-      - DB_NAME=userdb
+      - DB_NAME=bookingdb
       - DB_USER=postgres
-      - DB_PASSWORD=userpassword
+      - DB_PASSWORD=bookingpassword
       - DB_HOST=db
-      - DB_PORT=5432
-      - JWT_SECRET=your_jwt_secret
+      - DB_PORT=5433
     depends_on:
       db:
         condition: service_healthy
-    restart: unless-stopped
 
   db:
     image: postgres:13
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
-      - POSTGRES_DB=userdb
+      - POSTGRES_DB=bookingdb
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=userpassword
+      - POSTGRES_PASSWORD=bookingpassword
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_booking_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
 
 volumes:
-  postgres_data:
+  postgres_booking_data:

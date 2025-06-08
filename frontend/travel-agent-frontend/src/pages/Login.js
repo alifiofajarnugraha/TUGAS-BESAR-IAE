@@ -11,21 +11,8 @@ import {
   Link,
   Alert,
 } from "@mui/material";
-import { useMutation, gql } from "@apollo/client";
-
-const LOGIN_MUTATION = gql`
-  mutation Login($email: String!, $password: String!) {
-    authenticateUser(email: $email, password: $password) {
-      token
-      user {
-        id
-        name
-        email
-        role
-      }
-    }
-  }
-`;
+import { useMutation } from "@apollo/client";
+import { MUTATIONS, userService } from "../services/api";
 
 function Login() {
   const navigate = useNavigate();
@@ -33,7 +20,8 @@ function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const { login: authLogin } = useAuth();
-  const [login, { loading }] = useMutation(LOGIN_MUTATION, {
+  const [login, { loading }] = useMutation(MUTATIONS.LOGIN, {
+    client: userService, // Specify the client
     onCompleted: ({ authenticateUser }) => {
       authLogin(authenticateUser.user, authenticateUser.token);
       navigate("/");

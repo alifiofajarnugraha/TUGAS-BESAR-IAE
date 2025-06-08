@@ -1,16 +1,18 @@
-const mongoose = require('mongoose');
-const Inventory = require('./models/Inventory');
+const mongoose = require("mongoose");
+const Inventory = require("./models/Inventory");
 
 async function initializeDB() {
   try {
-    // Use local MongoDB when running locally, Docker MongoDB when running in container
-    const mongoURI = process.env.NODE_ENV === 'development' 
-      ? 'mongodb://inventory-mongo:27017/inventoryDB'  // Docker MongoDB service name
-      : process.env.MONGO_URI;                         // Environment variable
+    // Use the service name 'db' as defined in docker-compose.yml
+    const mongoURI = process.env.MONGO_URI || "mongodb://db:27017/inventoryDB";
 
-    console.log('Connecting to MongoDB at:', mongoURI);
-    await mongoose.connect(mongoURI);
-    console.log('Connected to MongoDB');
+    console.log("Connecting to MongoDB at:", mongoURI);
+    await mongoose.connect(mongoURI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 5000, // 5 second timeout
+    });
+    console.log("Connected to MongoDB");
 
     // Check if we already have data
     const count = await Inventory.countDocuments();
@@ -18,24 +20,17 @@ async function initializeDB() {
       // Add some initial data
       await Inventory.create([
         {
-          tourId: 'tour123',
-          date: new Date().toISOString().split('T')[0],
+          tourId: "tour123",
+          date: new Date().toISOString().split("T")[0],
           slots: 10,
           hotelAvailable: true,
-          transportAvailable: true
+          transportAvailable: true,
         },
-        {
-          tourId: 'tour123',
-          date: new Date(Date.now() + 86400000).toISOString().split('T')[0], // tomorrow
-          slots: 15,
-          hotelAvailable: true,
-          transportAvailable: true
-        }
       ]);
-      console.log('Initial data created');
+      console.log("Initial data created");
     }
   } catch (error) {
-    console.error('Database initialization error:', error);
+    console.error("Database initialization error:", error);
     process.exit(1);
   }
 }

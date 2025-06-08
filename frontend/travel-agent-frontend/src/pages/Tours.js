@@ -1,5 +1,5 @@
 import React from "react";
-import { useQuery, gql } from "@apollo/client";
+import { useQuery } from "@apollo/client";
 import {
   Container,
   Grid,
@@ -11,57 +11,52 @@ import {
   Box,
   CircularProgress,
   Alert,
-  Chip,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import { inventoryService } from "../services/api";
-
-const GET_AVAILABLE_TOURS = gql`
-  query GetAvailableTours {
-    getInventoryStatus(tourId: "all") {
-      tourId
-      date
-      slotsLeft
-      hotelAvailable
-      transportAvailable
-    }
-  }
-`;
+import { tourService } from "../services/api";
+import { QUERIES } from "../services/api";
 
 function Tours() {
   const navigate = useNavigate();
-  const { loading, error, data } = useQuery(GET_AVAILABLE_TOURS, {
-    client: inventoryService,
+  const {
+    loading: toursLoading,
+    error: toursError,
+    data: toursData,
+  } = useQuery(QUERIES.GET_TOUR_PACKAGES, {
+    client: tourService,
   });
 
-  if (loading)
+  if (toursLoading) {
     return (
       <Box
         display="flex"
         justifyContent="center"
         alignItems="center"
-        minHeight="60vh"
+        minHeight="80vh"
       >
         <CircularProgress />
       </Box>
     );
+  }
 
-  if (error)
+  if (toursError) {
     return (
       <Container sx={{ mt: 4 }}>
-        <Alert severity="error">Error loading tours: {error.message}</Alert>
+        <Alert severity="error">
+          Error loading tours: {toursError.message}
+        </Alert>
       </Container>
     );
+  }
 
   return (
     <Container sx={{ py: 8 }} maxWidth="lg">
-      <Typography variant="h3" component="h1" gutterBottom align="center">
-        Available Tours
+      <Typography variant="h3" gutterBottom align="center">
+        Available Tour Packages
       </Typography>
-
       <Grid container spacing={4}>
-        {data?.getInventoryStatus.map((tour) => (
-          <Grid item key={tour.tourId} xs={12} sm={6} md={4}>
+        {toursData?.getTourPackages.map((tour) => (
+          <Grid item key={tour.id} xs={12} sm={6} md={4}>
             <Card
               sx={{
                 height: "100%",
@@ -76,37 +71,30 @@ function Tours() {
               <CardMedia
                 component="img"
                 height="200"
-                image={`https://source.unsplash.com/800x600/?${tour.tourId}`}
-                alt={tour.tourId}
+                image={`https://source.unsplash.com/800x600/?${tour.location.city}`}
+                alt={tour.name}
               />
               <CardContent sx={{ flexGrow: 1 }}>
                 <Typography gutterBottom variant="h5" component="h2">
-                  Tour ID: {tour.tourId}
+                  {tour.name}
                 </Typography>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Available Date: {new Date(tour.date).toLocaleDateString()}
-                </Typography>
-                <Box sx={{ mb: 2 }}>
-                  <Chip
-                    label={`${tour.slotsLeft} slots left`}
-                    color={tour.slotsLeft > 5 ? "success" : "warning"}
-                    sx={{ mr: 1 }}
-                  />
-                  {tour.hotelAvailable && (
-                    <Chip
-                      label="Hotel Available"
-                      color="primary"
-                      sx={{ mr: 1 }}
-                    />
-                  )}
-                  {tour.transportAvailable && (
-                    <Chip label="Transport Available" color="primary" />
-                  )}
+                <Typography>{tour.short_description}</Typography>
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="h6" color="primary">
+                    {tour.price.currency} {tour.price.amount}
+                  </Typography>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    {tour.duration.days} Days {tour.duration.nights} Nights
+                  </Typography>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    {tour.location.city}, {tour.location.country}
+                  </Typography>
                 </Box>
                 <Button
                   variant="contained"
                   fullWidth
-                  onClick={() => navigate(`/book/${tour.tourId}`)}
+                  sx={{ mt: 2 }}
+                  onClick={() => navigate(`/book/${tour.id}`)}
                 >
                   Book Now
                 </Button>

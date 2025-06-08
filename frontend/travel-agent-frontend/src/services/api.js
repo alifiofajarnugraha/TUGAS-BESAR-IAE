@@ -1,8 +1,26 @@
-import { ApolloClient, InMemoryCache, createHttpLink } from "@apollo/client";
+import {
+  ApolloClient,
+  InMemoryCache,
+  createHttpLink,
+  gql,
+} from "@apollo/client";
 import { setContext } from "@apollo/client/link/context";
 
-const createServiceClient = (uri) => {
-  const httpLink = createHttpLink({ uri });
+// Service URLs
+const SERVICES = {
+  USER: "http://localhost:3001/graphql",
+  TOUR: "http://localhost:3002/graphql",
+  BOOKING: "http://localhost:3003/graphql",
+  PAYMENT: "http://localhost:3004/graphql",
+  INVENTORY: "http://localhost:3005/graphql",
+};
+
+// Create Apollo clients for each service
+const createClient = (uri) => {
+  const httpLink = createHttpLink({
+    uri,
+    credentials: "include",
+  });
 
   const authLink = setContext((_, { headers }) => {
     const token = localStorage.getItem("token");
@@ -17,58 +35,101 @@ const createServiceClient = (uri) => {
   return new ApolloClient({
     link: authLink.concat(httpLink),
     cache: new InMemoryCache(),
+    defaultOptions: {
+      watchQuery: {
+        fetchPolicy: "network-only",
+      },
+      query: {
+        fetchPolicy: "network-only",
+      },
+    },
   });
 };
 
-export const userService = createServiceClient("http://localhost:3001/graphql");
-export const inventoryService = createServiceClient(
-  "http://localhost:3005/graphql"
-);
-export const bookingService = createServiceClient(
-  "http://localhost:3003/graphql"
-);
-export const paymentService = createServiceClient(
-  "http://localhost:3004/graphql"
-);
+// Export service clients
+export const userService = createClient(SERVICES.USER);
+export const tourService = createClient(SERVICES.TOUR);
+export const bookingService = createClient(SERVICES.BOOKING);
+export const paymentService = createClient(SERVICES.PAYMENT);
+export const inventoryService = createClient(SERVICES.INVENTORY);
 
-// Query fragments that can be reused across components
-export const USER_FRAGMENT = `
-  fragment UserFields on User {
-    id
-    name
-    email
-    role
-  }
-`;
+// GraphQL Queries
+export const QUERIES = {
+  GET_CURRENT_USER: gql`
+    query GetCurrentUser {
+      getCurrentUser {
+        id
+        name
+        email
+        role
+      }
+    }
+  `,
+  // ...other queries
+};
 
-export const BOOKING_FRAGMENT = `
-  fragment BookingFields on Booking {
-    id
-    userId
-    tourId
-    status
-    departureDate
-    totalCost
-  }
-`;
+// GraphQL Mutations
+export const MUTATIONS = {
+  CREATE_BOOKING: gql`
+    mutation CreateBooking($input: BookingInput!) {
+      createBooking(input: $input) {
+        id
+        status
+      }
+    }
+  `,
 
-export const INVENTORY_FRAGMENT = `
-  fragment InventoryFields on Inventory {
-    tourId
-    date
-    slots
-    hotelAvailable
-    transportAvailable
-  }
-`;
+  PROCESS_PAYMENT: gql`
+    mutation ProcessPayment($input: PaymentInput!) {
+      processPayment(input: $input) {
+        id
+        status
+      }
+    }
+  `,
 
-export const PAYMENT_FRAGMENT = `
-  fragment PaymentFields on Payment {
-    id
-    amount
-    method
-    status
-    invoiceNumber
-    createdAt
-  }
-`;
+  RESERVE_INVENTORY: gql`
+    mutation ReserveSlots($input: ReservationInput!) {
+      reserveSlots(input: $input) {
+        success
+        message
+      }
+    }
+  `,
+
+  LOGIN: gql`
+    mutation Login($email: String!, $password: String!) {
+      authenticateUser(email: $email, password: $password) {
+        token
+        user {
+          id
+          name
+          email
+          role
+        }
+      }
+    }
+  `,
+
+  REGISTER: gql`
+    mutation Register($input: UserInput!) {
+      createUser(input: $input) {
+        id
+        name
+        email
+        role
+      }
+    }
+  `,
+
+  UPDATE_PROFILE: gql`
+    mutation UpdateUserProfile($id: ID!, $input: UserUpdateInput!) {
+      updateUserProfile(id: $id, input: $input) {
+        id
+        name
+        email
+        role
+      }
+    }
+  `,
+};

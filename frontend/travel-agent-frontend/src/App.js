@@ -16,6 +16,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Tours from "./pages/Tours";
 import BookingPage from "./pages/BookingPage";
+import Profile from "./pages/Profile";
 
 const theme = createTheme({
   palette: {
@@ -54,7 +55,15 @@ function App() {
                   <BookingPage />
                 </ProtectedRoute>
               }
-            />{" "}
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              }
+            />
           </Routes>
         </AuthProvider>
       </LocalizationProvider>

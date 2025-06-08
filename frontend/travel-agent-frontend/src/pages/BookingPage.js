@@ -17,9 +17,10 @@ import {
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import {
+  tourPackageService,
   bookingService,
-  inventoryService,
   paymentService,
+  inventoryService,
 } from "../services/api";
 
 const CHECK_AVAILABILITY = gql`
@@ -35,12 +36,24 @@ const CHECK_AVAILABILITY = gql`
   }
 `;
 
+const GET_TOUR_DETAILS = gql`
+  query GetTourPackage($id: ID!) {
+    getTourPackage(id: $id) {
+      id
+      name
+      price {
+        amount
+        currency
+      }
+    }
+  }
+`;
+
 const CREATE_BOOKING = gql`
   mutation CreateBooking($input: BookingInput!) {
     createBooking(input: $input) {
       id
       status
-      totalCost
     }
   }
 `;
@@ -50,7 +63,6 @@ const PROCESS_PAYMENT = gql`
     processPayment(input: $input) {
       id
       status
-      invoiceNumber
     }
   }
 `;

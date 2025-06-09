@@ -281,8 +281,9 @@ export const QUERIES = {
   `,
 
   GET_INVENTORY_STATUS: gql`
-    query GetInventoryStatus($tourId: String!) {
+    query GetInventoryStatus($tourId: ID!) {
       getInventoryStatus(tourId: $tourId) {
+        tourId
         date
         slotsLeft
         hotelAvailable
@@ -444,7 +445,7 @@ export const MUTATIONS = {
   `,
 
   UPDATE_INVENTORY: gql`
-    mutation UpdateInventory($input: InventoryInput!) {
+    mutation UpdateInventory($input: InventoryUpdateInput!) {
       updateInventory(input: $input) {
         tourId
         date

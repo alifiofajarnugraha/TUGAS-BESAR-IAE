@@ -36,25 +36,41 @@ module.exports = {
   },
 
   Mutation: {
-    // Update/Set inventory (slot, hotel, transport) untuk 1 tour pada 1 tanggal
     updateInventory: async (_, { input }) => {
-      const { tourId, date, slots, hotelAvailable, transportAvailable } = input;
-      const inv = await Inventory.findOneAndUpdate(
-        { tourId, date },
-        {
-          $set: {
+      try {
+        console.log("Update inventory input:", input);
+        const { tourId, date, slots, hotelAvailable, transportAvailable } =
+          input;
+
+        let inventory = await Inventory.findOne({ tourId, date });
+
+        if (inventory) {
+          // Update existing
+          inventory.slots = slots;
+          inventory.hotelAvailable = hotelAvailable;
+          inventory.transportAvailable = transportAvailable;
+          inventory.updatedAt = new Date().toISOString();
+          await inventory.save();
+        } else {
+          // Create new
+          inventory = new Inventory({
+            tourId,
+            date,
             slots,
             hotelAvailable,
             transportAvailable,
-            updatedAt: new Date().toISOString(),
-          },
-          $setOnInsert: {
             createdAt: new Date().toISOString(),
-          },
-        },
-        { new: true, upsert: true }
-      );
-      return inv;
+            updatedAt: new Date().toISOString(),
+          });
+          await inventory.save();
+        }
+
+        console.log("Updated inventory:", inventory);
+        return inventory;
+      } catch (error) {
+        console.error("Update inventory error:", error);
+        throw error;
+      }
     },
 
     // Real-time: Reserve slot (kurangi slot saat booking)

@@ -42,7 +42,7 @@ const typeDefs = gql`
     participants: Int!
   }
 
-  input InventoryUpdateInput {
+  input InventoryInput {
     tourId: ID!
     date: String!
     slots: Int!

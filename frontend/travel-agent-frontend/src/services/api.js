@@ -11,7 +11,10 @@ import { onError } from "@apollo/client/link/error"; // Tambahkan import ini
 const SERVICES = {
   USER: "http://localhost:3001/graphql",
   TOUR: "http://localhost:3002/graphql",
-  BOOKING: "http://localhost:3003/graphql",
+  BOOKING:
+    process.env.NODE_ENV === "development"
+      ? "http://localhost:3003/graphql" // Direct dalam development
+      : "/api/booking/graphql", // Melalui proxy di production
   PAYMENT: "http://localhost:3004/graphql",
   INVENTORY: "http://localhost:3005/graphql",
 };
@@ -20,7 +23,7 @@ const SERVICES = {
 const createClient = (uri) => {
   const httpLink = createHttpLink({
     uri,
-    credentials: "include",
+    credentials: "same-origin", // Ubah dari "include" ke "same-origin"
     // Tambahkan fetch options untuk debugging
     fetchOptions: {
       timeout: 15000, // 15 second timeout
@@ -83,17 +86,17 @@ const createClient = (uri) => {
     }),
     defaultOptions: {
       watchQuery: {
-        fetchPolicy: "cache-and-network", // Ubah dari network-only
+        fetchPolicy: "cache-and-network",
         errorPolicy: "all",
         notifyOnNetworkStatusChange: true,
       },
       query: {
-        fetchPolicy: "cache-first", // Ubah dari network-only
+        fetchPolicy: "cache-first",
         errorPolicy: "all",
       },
       mutate: {
         errorPolicy: "all",
-        fetchPolicy: "no-cache", // Tambahkan ini untuk mutations
+        fetchPolicy: "no-cache",
       },
     },
     // Tambahkan connection params untuk debugging
@@ -260,22 +263,15 @@ export const QUERIES = {
     }
   `,
 
-  CHECK_TOUR_AVAILABILITY: gql`
-    query CheckTourAvailability(
-      $tourId: ID!
-      $date: String!
-      $participants: Int!
-    ) {
-      checkTourAvailability(
+  CHECK_AVAILABILITY: gql`
+    query CheckAvailability($tourId: ID!, $date: String!, $participants: Int!) {
+      checkAvailability(
         tourId: $tourId
         date: $date
         participants: $participants
       ) {
         available
         message
-        slotsLeft
-        hotelAvailable
-        transportAvailable
       }
     }
   `,
@@ -308,6 +304,85 @@ export const QUERIES = {
           currency
         }
         images
+      }
+    }
+  `,
+
+  // Tambahkan queries untuk booking
+  GET_USER_BOOKINGS: gql`
+    query GetUserBookings($userId: ID!) {
+      getUserBookings(userId: $userId) {
+        id
+        tourId
+        status
+        departureDate
+        participants
+        totalCost
+        bookingDate
+        notes
+        paymentStatus
+        createdAt
+      }
+    }
+  `,
+
+  GET_BOOKING: gql`
+    query GetBooking($id: ID!) {
+      getBooking(id: $id) {
+        id
+        userId
+        tourId
+        status
+        departureDate
+        participants
+        totalCost
+        bookingDate
+        notes
+        paymentStatus
+        createdAt
+        updatedAt
+      }
+    }
+  `,
+
+  CALCULATE_BOOKING_COST: gql`
+    query CalculateBookingCost(
+      $tourId: ID!
+      $participants: Int!
+      $departureDate: Date!
+    ) {
+      calculateBookingCost(
+        tourId: $tourId
+        participants: $participants
+        departureDate: $departureDate
+      ) {
+        basePrice
+        participants
+        subtotal
+        tax
+        discount
+        totalCost
+        breakdown {
+          item
+          amount
+          quantity
+        }
+      }
+    }
+  `,
+
+  GET_ALL_BOOKINGS: gql`
+    query GetAllBookings {
+      getAllBookings {
+        id
+        userId
+        tourId
+        status
+        departureDate
+        participants
+        totalCost
+        paymentStatus
+        createdAt
       }
     }
   `,
@@ -452,6 +527,39 @@ export const MUTATIONS = {
         slots
         hotelAvailable
         transportAvailable
+      }
+    }
+  `,
+
+  // Tambahkan mutations untuk booking
+  UPDATE_BOOKING: gql`
+    mutation UpdateBooking($id: ID!, $input: BookingUpdateInput!) {
+      updateBooking(id: $id, input: $input) {
+        id
+        status
+        paymentStatus
+        updatedAt
+      }
+    }
+  `,
+
+  CANCEL_BOOKING: gql`
+    mutation CancelBooking($id: ID!, $reason: String) {
+      cancelBooking(id: $id, reason: $reason) {
+        id
+        status
+        notes
+        updatedAt
+      }
+    }
+  `,
+
+  CONFIRM_BOOKING: gql`
+    mutation ConfirmBooking($id: ID!) {
+      confirmBooking(id: $id) {
+        id
+        status
+        updatedAt
       }
     }
   `,

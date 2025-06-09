@@ -1,31 +1,80 @@
+scalar Date
+
 type Booking {
-    id: ID!
-    userId: ID!
-    tourId: ID!
-    status: BookingStatus!
-    departureDate: String!
-    totalCost: Float!
+  id: ID!
+  userId: ID!
+  tourId: ID!
+  status: BookingStatus!
+  departureDate: Date!
+  participants: Int!
+  totalCost: Float!
+  bookingDate: Date!
+  notes: String
+  paymentStatus: PaymentStatus!
+  createdAt: Date!
+  updatedAt: Date!
 }
 
 enum BookingStatus {
-    PENDING
-    CONFIRMED
-    CANCELLED
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  REFUNDED
+  FAILED
+}
+
+type BookingCalculation {
+  basePrice: Float!
+  participants: Int!
+  subtotal: Float!
+  tax: Float!
+  discount: Float!
+  totalCost: Float!
+  breakdown: [CostBreakdown!]!
+}
+
+type CostBreakdown {
+  item: String!
+  amount: Float!
+  quantity: Int
 }
 
 input BookingInput {
-    userId: ID!
-    tourId: ID!
-    departureDate: String!
-    totalCost: Float!
+  userId: ID!
+  tourId: ID!
+  departureDate: Date!
+  participants: Int!
+  notes: String
+}
+
+input BookingUpdateInput {
+  status: BookingStatus
+  notes: String
+  paymentStatus: PaymentStatus
 }
 
 type Query {
-    getBooking(id: ID!): Booking
-    getUserBookings(userId: ID!): [Booking]!
+  getBooking(id: ID!): Booking
+  getUserBookings(userId: ID!): [Booking!]!
+  getAllBookings: [Booking!]!
+  getBookingsByStatus(status: BookingStatus!): [Booking!]!
+  getBookingsByDateRange(startDate: Date!, endDate: Date!): [Booking!]!
+  calculateBookingCost(
+    tourId: ID!
+    participants: Int!
+    departureDate: Date!
+  ): BookingCalculation!
 }
 
 type Mutation {
-    createBooking(input: BookingInput!): Booking!
-    updateBookingStatus(id: ID!, status: BookingStatus!): Booking!
+  createBooking(input: BookingInput!): Booking!
+  updateBooking(id: ID!, input: BookingUpdateInput!): Booking!
+  cancelBooking(id: ID!, reason: String): Booking!
+  confirmBooking(id: ID!): Booking!
 }

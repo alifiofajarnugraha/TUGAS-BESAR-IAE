@@ -1,6 +1,7 @@
 const TourPackage = require("../models/TourPackage");
 const mongoose = require("mongoose");
 const axios = require("axios");
+const { GraphQLScalarType, Kind } = require("graphql");
 
 // Service URLs
 const INVENTORY_SERVICE_URL = "http://localhost:3005/graphql";
@@ -36,7 +37,6 @@ const callInventoryService = async (query, variables = {}) => {
   }
 };
 
-// INTEGRASI DENGAN KELOMPOK LAIN ( TRAVEL SCHEDULE) //
 // Helper function to call travel schedule service
 const callTravelScheduleService = async (query, variables = {}) => {
   try {
@@ -67,18 +67,49 @@ const callTravelScheduleService = async (query, variables = {}) => {
 };
 
 const resolvers = {
+  Date: new GraphQLScalarType({
+    name: "Date",
+    description: "Date custom scalar type",
+    parseValue(value) {
+      // Value from the client
+      return new Date(value);
+    },
+    serialize(value) {
+      // Value sent to the client
+      if (value instanceof Date) {
+        return value.toISOString().split("T")[0]; // Returns YYYY-MM-DD format
+      }
+      return new Date(value).toISOString().split("T")[0];
+    },
+    parseLiteral(ast) {
+      // Value from the client query
+      if (ast.kind === Kind.STRING) {
+        return new Date(ast.value);
+      }
+      return null;
+    },
+  }),
+
   Query: {
     getTourPackages: async () => {
+      console.log("📦 getTourPackages resolver called");
       try {
         const tours = await TourPackage.find({}).sort({ createdAt: -1 });
+        console.log(`📦 Found ${tours.length} tours`);
+
         tours.forEach((t) => {
           if (!t._id) console.warn("Tour tanpa _id:", t);
         });
-        return tours.map((tour) => ({
+
+        const result = tours.map((tour) => ({
           id: tour._id ? tour._id.toString() : null,
           ...tour.toObject(),
         }));
+
+        console.log("📦 Returning tours:", result.length);
+        return result;
       } catch (error) {
+        console.error("❌ Error in getTourPackages:", error);
         throw new Error(`Error fetching tour packages: ${error}`);
       }
     },
@@ -157,7 +188,7 @@ const resolvers = {
       }
     },
 
-    // New inventory-related queries
+    // Inventory-related queries
     checkTourAvailability: async (_, { tourId, date, participants }) => {
       try {
         const inventoryData = await callInventoryService(
@@ -268,8 +299,7 @@ const resolvers = {
       }
     },
 
-    // INTEGRASI DENGAN KELOMPOK LAIN ( TRAVEL SCHEDULE) //
-    // New travel schedule integration queries
+    // Travel schedule integration queries
     getTravelSchedulesForTour: async (_, { tourId }) => {
       try {
         const tour = await TourPackage.findById(tourId);
@@ -293,7 +323,7 @@ const resolvers = {
           }
         `,
           {
-            origin: "Jakarta", // You can make this dynamic based on tour pickup location
+            origin: "Jakarta",
             destination: tour.location.city,
           }
         );
@@ -332,7 +362,6 @@ const resolvers = {
       }
     },
 
-    // Enhanced tour package query with travel options
     getTourPackageWithTravel: async (_, { id, origin }) => {
       try {
         if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -411,36 +440,9 @@ const resolvers = {
 
         const savedTour = await newTourPackage.save();
 
-        // (Opsional) Inisialisasi inventory jika ada availableDates
-        // Jika inventory service gagal, jangan throw error, cukup log
-        if (input.availableDates && input.availableDates.length > 0) {
-          try {
-            await callInventoryService(
-              `
-              mutation UpdateInventory($input: InventoryInput!) {
-                updateInventory(input: $input) {
-                  tourId
-                  date
-                  slots
-                }
-              }
-            `,
-              {
-                input: {
-                  tourId: savedTour._id.toString(),
-                  date: input.availableDates[0].date,
-                  slots: input.availableDates[0].slots,
-                  hotelAvailable: input.hotelRequired !== false,
-                  transportAvailable: input.transportRequired !== false,
-                },
-              }
-            );
-          } catch (err) {
-            console.error("Inventory service error (ignored):", err.message);
-          }
-        }
+        // Tidak perlu initialize inventory di sini - akan dihandle oleh inventory-service
+        console.log(`✅ Tour package created: ${savedTour.name}`);
 
-        // Penting: return objek dengan id (string)
         return {
           id: savedTour._id.toString(),
           ...savedTour.toObject(),
@@ -480,16 +482,19 @@ const resolvers = {
         if (!mongoose.Types.ObjectId.isValid(id)) {
           throw new Error("Invalid tour package ID");
         }
+
         await callInventoryService(
           `mutation DeleteTour($tourId: String!) {
             deleteTour(tourId: $tourId) { success message }
           }`,
           { tourId: id }
         );
+
         const deletedTourPackage = await TourPackage.findByIdAndDelete(id);
         if (!deletedTourPackage) {
           throw new Error(`Tour package with ID ${id} not found`);
         }
+
         return {
           id: deletedTourPackage._id.toString(),
           ...deletedTourPackage.toObject(),
@@ -504,20 +509,24 @@ const resolvers = {
         if (!mongoose.Types.ObjectId.isValid(id)) {
           throw new Error("Invalid tour package ID");
         }
+
         const validStatuses = ["active", "inactive", "soldout"];
         if (!validStatuses.includes(status)) {
           throw new Error(
             `Invalid status. Must be one of: ${validStatuses.join(", ")}`
           );
         }
+
         const updatedTourPackage = await TourPackage.findByIdAndUpdate(
           id,
           { status, updatedAt: new Date().toISOString() },
           { new: true }
         );
+
         if (!updatedTourPackage) {
           throw new Error(`Tour package with ID ${id} not found`);
         }
+
         return {
           id: updatedTourPackage._id.toString(),
           ...updatedTourPackage.toObject(),
@@ -527,30 +536,23 @@ const resolvers = {
       }
     },
 
-    // New inventory-related mutations
-    initializeTourInventory: async (_, { tourId, dates }) => {
+    // Inventory-related mutations
+    initializeTourInventory: async (_, { tourId, dates, defaultSlots }) => {
       try {
-        for (const dateInfo of dates) {
-          await callInventoryService(
-            `
-            mutation UpdateInventory($input: InventoryInput!) {
-              updateInventory(input: $input) {
-                tourId
-              }
+        // Call inventory service to initialize inventory
+        const result = await callInventoryService(
+          `
+          mutation InitializeTourInventory($tourId: String!, $dates: [String!]!, $defaultSlots: Int!) {
+            initializeTourInventory(tourId: $tourId, dates: $dates, defaultSlots: $defaultSlots) {
+              success
+              message
             }
-          `,
-            {
-              input: {
-                tourId,
-                date: dateInfo.date,
-                slots: dateInfo.slots,
-                hotelAvailable: true,
-                transportAvailable: true,
-              },
-            }
-          );
-        }
-        return true;
+          }
+        `,
+          { tourId, dates, defaultSlots }
+        );
+
+        return result?.initializeTourInventory?.success || false;
       } catch (error) {
         console.error("Error initializing inventory:", error);
         return false;

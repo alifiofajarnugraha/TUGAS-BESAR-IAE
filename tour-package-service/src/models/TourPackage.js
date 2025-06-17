@@ -113,7 +113,7 @@ const tourPackageSchema = new mongoose.Schema({
     enum: ["active", "inactive", "soldout"],
     default: "active",
   },
-  // New fields for inventory integration
+  // Fields for inventory integration
   defaultSlots: {
     type: Number,
     default: 0,
@@ -127,23 +127,6 @@ const tourPackageSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
-  availableDates: [
-    {
-      date: {
-        type: Date,
-        required: true,
-      },
-      slots: {
-        type: Number,
-        required: true,
-        min: 0,
-      },
-      price: {
-        amount: Number,
-        currency: String,
-      },
-    },
-  ],
   createdAt: {
     type: String,
   },

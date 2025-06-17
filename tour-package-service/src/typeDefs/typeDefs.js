@@ -4,6 +4,14 @@
 const { gql } = require("graphql-tag");
 
 const typeDefs = gql`
+  scalar Date
+
+  enum TourStatus {
+    active
+    inactive
+    draft
+  }
+
   type Location {
     city: String!
     province: String!
@@ -21,11 +29,7 @@ const typeDefs = gql`
     currency: String!
   }
 
-  type AvailableDate {
-    date: String!
-    slots: Int!
-    price: Price
-  }
+  # Removed AvailableDate type - handled by inventory-service
 
   type InventoryStatus {
     tourId: String!
@@ -72,13 +76,13 @@ const typeDefs = gql`
     defaultSlots: Int
     hotelRequired: Boolean
     transportRequired: Boolean
-    availableDates: [AvailableDate]
+    # Removed availableDates - handled by inventory-service
     createdAt: String
     updatedAt: String
-    # Fields yang ditambahkan untuk inventory integration
+    # Fields untuk inventory integration
     inventoryStatus: [InventoryStatus]
     isAvailable: Boolean
-    # New field for travel integration
+    # Field untuk travel integration
     travelOptions: [TravelSchedule]
   }
 
@@ -106,11 +110,7 @@ const typeDefs = gql`
     currency: String!
   }
 
-  input AvailableDateInput {
-    date: String!
-    slots: Int!
-    price: PriceInput
-  }
+  # Removed AvailableDateInput - handled by inventory-service
 
   input ItineraryDayInput {
     day: Int!
@@ -136,7 +136,7 @@ const typeDefs = gql`
     defaultSlots: Int
     hotelRequired: Boolean
     transportRequired: Boolean
-    availableDates: [AvailableDateInput]
+    # Removed availableDates - handled by inventory-service
   }
 
   type Query {
@@ -144,15 +144,15 @@ const typeDefs = gql`
     getTourPackage(id: ID!): TourPackage
     getTourPackagesByCategory(category: String!): [TourPackage!]!
     searchTourPackages(keyword: String!): [TourPackage!]!
-    # New inventory-related queries
+    # Inventory-related queries
     checkTourAvailability(
       tourId: ID!
-      date: String!
+      date: Date!
       participants: Int!
     ): AvailabilityCheck!
     getTourInventoryStatus(tourId: ID!): [InventoryStatus!]!
     getAvailableTours(date: String!, participants: Int!): [TourPackage!]!
-    # New travel-related queries
+    # Travel-related queries
     getTravelSchedulesForTour(tourId: ID!): [TravelSchedule!]!
     getAvailableTravelOptions(
       origin: String!
@@ -166,14 +166,15 @@ const typeDefs = gql`
     updateTourPackage(id: ID!, input: TourPackageInput!): TourPackage!
     deleteTourPackage(id: ID!): TourPackage
     updateTourStatus(id: ID!, status: String!): TourPackage!
-    # New inventory-related mutations
+    # Inventory-related mutations - these will call inventory-service
     initializeTourInventory(
       tourId: ID!
-      dates: [AvailableDateInput!]!
+      dates: [String!]!
+      defaultSlots: Int!
     ): Boolean!
     updateTourInventory(
       tourId: ID!
-      date: String!
+      date: Date!
       slots: Int!
       hotelAvailable: Boolean
       transportAvailable: Boolean

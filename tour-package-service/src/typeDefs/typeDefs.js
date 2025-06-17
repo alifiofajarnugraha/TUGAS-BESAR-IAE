@@ -75,10 +75,9 @@ const typeDefs = gql`
     availableDates: [AvailableDate]
     createdAt: String
     updatedAt: String
-    # Fields yang ditambahkan untuk inventory integration
     inventoryStatus: [InventoryStatus]
     isAvailable: Boolean
-    # New field for travel integration
+    validDate: String!
     travelOptions: [TravelSchedule]
   }
 
@@ -108,6 +107,7 @@ const typeDefs = gql`
 
   input AvailableDateInput {
     date: String!
+    validDate: String!
     slots: Int!
     price: PriceInput
   }

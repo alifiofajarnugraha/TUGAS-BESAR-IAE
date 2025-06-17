@@ -150,6 +150,10 @@ const tourPackageSchema = new mongoose.Schema({
   updatedAt: {
     type: String,
   },
+  validDate: {
+    type: Date,
+    required: false,
+  },
 });
 
 const TourPackage = mongoose.model("TourPackage", tourPackageSchema);

@@ -1,6 +1,8 @@
 const TourPackage = require("../models/TourPackage");
+const TourInventory = require("../models/TourInventory");
 const mongoose = require("mongoose");
 const axios = require("axios");
+const { GraphQLScalarType } = require("graphql");
 
 // Service URLs
 const INVENTORY_SERVICE_URL = "http://localhost:3005/graphql";
@@ -67,6 +69,16 @@ const callTravelScheduleService = async (query, variables = {}) => {
 };
 
 const resolvers = {
+  Date: new GraphQLScalarType({
+    name: "Date",
+    parseValue(value) {
+      return new Date(value);
+    },
+    serialize(value) {
+      return value.toISOString().split("T")[0]; // Returns YYYY-MM-DD format
+    },
+  }),
+
   Query: {
     getTourPackages: async () => {
       try {
@@ -400,6 +412,19 @@ const resolvers = {
       } catch (error) {
         throw new Error(`Error fetching tour package with travel: ${error}`);
       }
+    },
+
+    getTourWithInventory: async (_, { id }) => {
+      const tour = await TourPackage.findById(id);
+      if (!tour) {
+        throw new Error("Tour package not found");
+      }
+      // Get inventory data and merge with tour data
+      const inventory = await TourInventory.find({ tourId: id });
+      return {
+        ...tour.toObject(),
+        inventory,
+      };
     },
   },
 

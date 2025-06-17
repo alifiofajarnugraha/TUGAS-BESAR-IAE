@@ -4,6 +4,14 @@
 const { gql } = require("graphql-tag");
 
 const typeDefs = gql`
+  scalar Date
+
+  enum TourStatus {
+    active
+    inactive
+    draft
+  }
+
   type Location {
     city: String!
     province: String!
@@ -22,9 +30,8 @@ const typeDefs = gql`
   }
 
   type AvailableDate {
-    date: String!
+    date: Date!
     slots: Int!
-    price: Price
   }
 
   type InventoryStatus {
@@ -58,34 +65,9 @@ const typeDefs = gql`
     id: ID!
     name: String!
     category: String!
-    shortDescription: String!
-    longDescription: String
-    location: Location!
-    duration: Duration!
     price: Price!
-    maxParticipants: Int!
-    inclusions: [String]
-    exclusions: [String]
-    itinerary: [ItineraryDay]
-    images: [String]
     status: String!
-    defaultSlots: Int
-    hotelRequired: Boolean
-    transportRequired: Boolean
-    availableDates: [AvailableDate]
-    createdAt: String
-    updatedAt: String
-    inventoryStatus: [InventoryStatus]
-    isAvailable: Boolean
-    validDate: String!
-    travelOptions: [TravelSchedule]
-  }
-
-  type ItineraryDay {
-    day: Int!
-    title: String!
-    description: String!
-    activities: [String!]!
+    availableDates: [AvailableDate!]
   }
 
   input LocationInput {
@@ -106,10 +88,8 @@ const typeDefs = gql`
   }
 
   input AvailableDateInput {
-    date: String!
-    validDate: String!
+    date: Date!
     slots: Int!
-    price: PriceInput
   }
 
   input ItineraryDayInput {
@@ -142,12 +122,13 @@ const typeDefs = gql`
   type Query {
     getTourPackages: [TourPackage!]!
     getTourPackage(id: ID!): TourPackage
+    getTourWithInventory(id: ID!): TourPackage
     getTourPackagesByCategory(category: String!): [TourPackage!]!
     searchTourPackages(keyword: String!): [TourPackage!]!
     # New inventory-related queries
     checkTourAvailability(
       tourId: ID!
-      date: String!
+      date: Date!
       participants: Int!
     ): AvailabilityCheck!
     getTourInventoryStatus(tourId: ID!): [InventoryStatus!]!
@@ -173,7 +154,7 @@ const typeDefs = gql`
     ): Boolean!
     updateTourInventory(
       tourId: ID!
-      date: String!
+      date: Date!
       slots: Int!
       hotelAvailable: Boolean
       transportAvailable: Boolean

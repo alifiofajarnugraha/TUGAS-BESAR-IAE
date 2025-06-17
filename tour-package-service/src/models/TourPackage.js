@@ -129,19 +129,8 @@ const tourPackageSchema = new mongoose.Schema({
   },
   availableDates: [
     {
-      date: {
-        type: Date,
-        required: true,
-      },
-      slots: {
-        type: Number,
-        required: true,
-        min: 0,
-      },
-      price: {
-        amount: Number,
-        currency: String,
-      },
+      date: { type: Date, required: true },
+      slots: { type: Number, required: true },
     },
   ],
   createdAt: {

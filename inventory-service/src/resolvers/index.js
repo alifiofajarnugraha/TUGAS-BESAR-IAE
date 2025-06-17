@@ -55,7 +55,6 @@ module.exports = {
   },
 
   Mutation: {
-    // Update/Set inventory (slot, hotel, transport) untuk 1 tour pada 1 tanggal
     updateInventory: async (_, { input }) => {
       const { tourId, date, slots, hotelAvailable, transportAvailable } = input;
       const isValid = await validateTourId(input.tourId);
@@ -69,15 +68,18 @@ module.exports = {
             slots,
             hotelAvailable,
             transportAvailable,
-            updatedAt: new Date().toISOString(),
-          },
-          $setOnInsert: {
             createdAt: new Date().toISOString(),
-          },
-        },
-        { new: true, upsert: true }
-      );
-      return inv;
+            updatedAt: new Date().toISOString(),
+          });
+          await inventory.save();
+        }
+
+        console.log("Updated inventory:", inventory);
+        return inventory;
+      } catch (error) {
+        console.error("Update inventory error:", error);
+        throw error;
+      }
     },
 
     // Real-time: Reserve slot (kurangi slot saat booking)

@@ -43,6 +43,17 @@ const typeDefs = gql`
     transportAvailable: Boolean
   }
 
+  type TravelSchedule {
+    id: ID!
+    origin: String!
+    destination: String!
+    departureTime: String!
+    arrivalTime: String!
+    price: Float!
+    seatsAvailable: Int!
+    vehicleType: String!
+  }
+
   type TourPackage {
     id: ID!
     name: String!
@@ -67,6 +78,8 @@ const typeDefs = gql`
     # Fields yang ditambahkan untuk inventory integration
     inventoryStatus: [InventoryStatus]
     isAvailable: Boolean
+    # New field for travel integration
+    travelOptions: [TravelSchedule]
   }
 
   type ItineraryDay {
@@ -139,6 +152,13 @@ const typeDefs = gql`
     ): AvailabilityCheck!
     getTourInventoryStatus(tourId: ID!): [InventoryStatus!]!
     getAvailableTours(date: String!, participants: Int!): [TourPackage!]!
+    # New travel-related queries
+    getTravelSchedulesForTour(tourId: ID!): [TravelSchedule!]!
+    getAvailableTravelOptions(
+      origin: String!
+      destination: String!
+    ): [TravelSchedule!]!
+    getTourPackageWithTravel(id: ID!, origin: String): TourPackage
   }
 
   type Mutation {

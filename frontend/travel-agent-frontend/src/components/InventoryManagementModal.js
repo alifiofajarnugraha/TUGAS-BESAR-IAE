@@ -44,6 +44,10 @@ function InventoryManagementModal({ open, onClose, tour }) {
       variables: { tourId: tour.id },
       client: inventoryService,
       skip: !tour.id,
+      onError: (error) => {
+        console.error("Inventory query error:", error);
+        setMessage({ type: "error", text: "Failed to load inventory data" });
+      },
     }
   );
 
@@ -56,6 +60,7 @@ function InventoryManagementModal({ open, onClose, tour }) {
         refetch();
       },
       onError: (err) => {
+        console.error("Update inventory error:", err);
         setMessage({ type: "error", text: err.message });
       },
     }
@@ -105,6 +110,7 @@ function InventoryManagementModal({ open, onClose, tour }) {
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 required
+                placeholder="2024-12-25"
               />
             </Grid>
             <Grid item xs={12}>
@@ -160,19 +166,24 @@ function InventoryManagementModal({ open, onClose, tour }) {
           {loading ? (
             <CircularProgress size={24} />
           ) : error ? (
-            <Alert severity="error">{error.message}</Alert>
+            <Alert severity="error">
+              Error loading inventory: {error.message}
+            </Alert>
           ) : (
             <Paper
               variant="outlined"
               sx={{ maxHeight: 200, overflowY: "auto" }}
             >
               <Box sx={{ p: 2 }}>
-                {data?.getTourInventoryStatus?.length === 0 && (
-                  <Typography>No inventory data.</Typography>
+                {(!data?.getInventoryStatus ||
+                  data.getInventoryStatus.length === 0) && (
+                  <Typography color="text.secondary">
+                    No inventory data found for this tour.
+                  </Typography>
                 )}
-                {data?.getTourInventoryStatus?.map((inv) => (
+                {data?.getInventoryStatus?.map((inv, index) => (
                   <Box
-                    key={inv.date}
+                    key={`${inv.date}-${index}`}
                     sx={{
                       mb: 2,
                       p: 1,
@@ -184,7 +195,7 @@ function InventoryManagementModal({ open, onClose, tour }) {
                       <b>Date:</b> {inv.date}
                     </Typography>
                     <Typography variant="body2">
-                      <b>Slots:</b> {inv.slotsLeft}
+                      <b>Slots Left:</b> {inv.slotsLeft}
                     </Typography>
                     <Typography variant="body2">
                       <b>Hotel:</b> {inv.hotelAvailable ? "Yes" : "No"}

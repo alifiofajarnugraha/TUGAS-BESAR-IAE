@@ -7,7 +7,7 @@ const typeDefs = gql`
   }
 
   type InventoryStatus {
-    tourId: String!
+    tourId: ID!
     date: String!
     slotsLeft: Int!
     hotelAvailable: Boolean!
@@ -27,7 +27,7 @@ const typeDefs = gql`
 
   type Inventory {
     id: ID!
-    tourId: String!
+    tourId: ID!
     date: String!
     slots: Int!
     hotelAvailable: Boolean!
@@ -37,33 +37,34 @@ const typeDefs = gql`
   }
 
   input ReservationInput {
-    tourId: String!
+    tourId: ID!
     date: String!
     participants: Int!
   }
 
   input InventoryInput {
-    tourId: String!
+    tourId: ID!
     date: String!
-    slots: Int
-    hotelAvailable: Boolean
-    transportAvailable: Boolean
+    slots: Int!
+    hotelAvailable: Boolean!
+    transportAvailable: Boolean!
   }
 
   type Query {
     checkAvailability(
-      tourId: String!
+      tourId: ID!
       date: String!
       participants: Int!
     ): AvailabilityCheck!
-    getInventoryStatus(tourId: String!): [InventoryStatus!]!
+
+    getInventoryStatus(tourId: ID!): [InventoryStatus!]!
     getAllInventory: [Inventory!]!
   }
 
   type Mutation {
     reserveSlots(input: ReservationInput!): ReservationResult!
     updateInventory(input: InventoryInput!): Inventory!
-    deleteTour(tourId: String!): DeleteResult!
+    deleteTour(tourId: ID!): DeleteResult!
   }
 `;
 

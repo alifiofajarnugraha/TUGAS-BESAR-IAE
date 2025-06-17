@@ -2,8 +2,9 @@ const TourPackage = require("../models/TourPackage");
 const mongoose = require("mongoose");
 const axios = require("axios");
 
-// Inventory Service URL
+// Service URLs
 const INVENTORY_SERVICE_URL = "http://localhost:3005/graphql";
+const TRAVEL_SCHEDULE_SERVICE_URL = "http://localhost:3006/graphql";
 
 // Helper function to call inventory service dengan better error handling
 const callInventoryService = async (query, variables = {}) => {
@@ -31,6 +32,36 @@ const callInventoryService = async (query, variables = {}) => {
   } catch (error) {
     console.warn("Inventory service unavailable:", error.message);
     // Return null instead of throwing - allow graceful fallback
+    return null;
+  }
+};
+
+// INTEGRASI DENGAN KELOMPOK LAIN ( TRAVEL SCHEDULE) //
+// Helper function to call travel schedule service
+const callTravelScheduleService = async (query, variables = {}) => {
+  try {
+    const response = await axios.post(
+      TRAVEL_SCHEDULE_SERVICE_URL,
+      {
+        query,
+        variables,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        timeout: 5000,
+      }
+    );
+
+    if (response.data.errors) {
+      console.error("Travel schedule service errors:", response.data.errors);
+      return null;
+    }
+
+    return response.data.data;
+  } catch (error) {
+    console.warn("Travel schedule service unavailable:", error.message);
     return null;
   }
 };
@@ -234,6 +265,136 @@ const resolvers = {
         return availableTours;
       } catch (error) {
         throw new Error(`Error getting available tours: ${error}`);
+      }
+    },
+
+    // INTEGRASI DENGAN KELOMPOK LAIN ( TRAVEL SCHEDULE) //
+    // New travel schedule integration queries
+    getTravelSchedulesForTour: async (_, { tourId }) => {
+      try {
+        const tour = await TourPackage.findById(tourId);
+        if (!tour) {
+          throw new Error(`Tour package with ID ${tourId} not found`);
+        }
+
+        const travelData = await callTravelScheduleService(
+          `
+          query GetTravelSchedulesByRoute($origin: String!, $destination: String!) {
+            getTravelSchedulesByRoute(origin: $origin, destination: $destination) {
+              id
+              origin
+              destination
+              departureTime
+              arrivalTime
+              price
+              seatsAvailable
+              vehicleType
+            }
+          }
+        `,
+          {
+            origin: "Jakarta", // You can make this dynamic based on tour pickup location
+            destination: tour.location.city,
+          }
+        );
+
+        return travelData?.getTravelSchedulesByRoute || [];
+      } catch (error) {
+        console.error("Error getting travel schedules for tour:", error);
+        return [];
+      }
+    },
+
+    getAvailableTravelOptions: async (_, { origin, destination }) => {
+      try {
+        const travelData = await callTravelScheduleService(
+          `
+          query GetTravelSchedulesByRoute($origin: String!, $destination: String!) {
+            getTravelSchedulesByRoute(origin: $origin, destination: $destination) {
+              id
+              origin
+              destination
+              departureTime
+              arrivalTime
+              price
+              seatsAvailable
+              vehicleType
+            }
+          }
+        `,
+          { origin, destination }
+        );
+
+        return travelData?.getTravelSchedulesByRoute || [];
+      } catch (error) {
+        console.error("Error getting available travel options:", error);
+        return [];
+      }
+    },
+
+    // Enhanced tour package query with travel options
+    getTourPackageWithTravel: async (_, { id, origin }) => {
+      try {
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+          throw new Error("Invalid tour package ID");
+        }
+
+        const tourPackage = await TourPackage.findById(id);
+        if (!tourPackage) {
+          throw new Error(`Tour package with ID ${id} not found`);
+        }
+
+        // Get inventory status
+        const inventoryData = await callInventoryService(
+          `
+          query GetInventoryStatus($tourId: String!) {
+            getInventoryStatus(tourId: $tourId) {
+              tourId
+              date
+              slotsLeft
+              hotelAvailable
+              transportAvailable
+            }
+          }
+        `,
+          { tourId: id }
+        );
+
+        // Get travel options if origin is provided
+        let travelOptions = [];
+        if (origin) {
+          const travelData = await callTravelScheduleService(
+            `
+            query GetTravelSchedulesByRoute($origin: String!, $destination: String!) {
+              getTravelSchedulesByRoute(origin: $origin, destination: $destination) {
+                id
+                origin
+                destination
+                departureTime
+                arrivalTime
+                price
+                seatsAvailable
+                vehicleType
+              }
+            }
+          `,
+            { origin, destination: tourPackage.location.city }
+          );
+          travelOptions = travelData?.getTravelSchedulesByRoute || [];
+        }
+
+        return {
+          id: tourPackage._id.toString(),
+          ...tourPackage.toObject(),
+          inventoryStatus: inventoryData?.getInventoryStatus || [],
+          isAvailable:
+            inventoryData?.getInventoryStatus?.some(
+              (inv) => inv.slotsLeft > 0
+            ) || false,
+          travelOptions,
+        };
+      } catch (error) {
+        throw new Error(`Error fetching tour package with travel: ${error}`);
       }
     },
   },

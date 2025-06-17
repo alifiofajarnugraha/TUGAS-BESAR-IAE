@@ -57,25 +57,29 @@ module.exports = {
   Mutation: {
     updateInventory: async (_, { input }) => {
       const { tourId, date, slots, hotelAvailable, transportAvailable } = input;
-      const isValid = await validateTourId(input.tourId);
+      const isValid = await validateTourId(tourId);
       if (!isValid) {
         throw new Error("Invalid tourId: Tour does not exist");
       }
-      const inv = await Inventory.findOneAndUpdate(
-        { tourId, date },
-        {
-          $set: {
-            slots,
-            hotelAvailable,
-            transportAvailable,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          });
-          await inventory.save();
-        }
-
-        console.log("Updated inventory:", inventory);
-        return inventory;
+      try {
+        const updatedAt = new Date().toISOString();
+        const inv = await Inventory.findOneAndUpdate(
+          { tourId, date },
+          {
+            $set: {
+              slots,
+              hotelAvailable,
+              transportAvailable,
+              updatedAt,
+            },
+            $setOnInsert: {
+              createdAt: updatedAt,
+            },
+          },
+          { new: true, upsert: true }
+        );
+        console.log("Updated inventory:", inv);
+        return inv;
       } catch (error) {
         console.error("Update inventory error:", error);
         throw error;

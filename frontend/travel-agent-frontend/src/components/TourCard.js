@@ -1,4 +1,5 @@
 import React from "react";
+import { motion } from "framer-motion";
 import {
   Card,
   CardContent,
@@ -96,194 +97,215 @@ const TourCard = ({ tour }) => {
   const nextAvailable = getNextAvailableDate();
 
   return (
-    <Card
-      sx={{
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        transition: "all 0.3s ease-in-out",
-        "&:hover": {
-          transform: "translateY(-4px)",
-          boxShadow: 4,
-        },
-        borderRadius: 2,
-        overflow: "hidden",
-        opacity: tour.status === "inactive" ? 0.6 : 1,
-      }}
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      whileHover={{ y: -8 }}
     >
-      {/* Image Carousel with Availability Badge */}
-      <Box sx={{ position: "relative" }}>
-        <ImageCarousel images={tour.images} alt={tour.name} height={220} />
+      <Card
+        sx={{
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          borderRadius: 2,
+          overflow: "hidden",
+          opacity: tour.status === "inactive" ? 0.6 : 1,
+        }}
+      >
+        {/* Image Carousel with Availability Badge */}
+        <Box sx={{ position: "relative" }}>
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            transition={{ duration: 0.3 }}
+          >
+            <ImageCarousel images={tour.images} alt={tour.name} height={220} />
+          </motion.div>
 
-        {/* Availability Badge */}
-        <Chip
-          icon={availabilityInfo.icon}
-          label={availabilityInfo.label}
-          color={availabilityInfo.color}
-          size="small"
-          sx={{
-            position: "absolute",
-            top: 8,
-            left: 8,
-            fontWeight: 600,
-          }}
-        />
-      </Box>
-
-      <CardContent sx={{ flexGrow: 1, p: 2 }}>
-        {/* Tour Category */}
-        {tour.category && (
-          <Chip
-            label={tour.category}
-            size="small"
-            color="primary"
-            sx={{ mb: 1 }}
-          />
-        )}
-
-        {/* Tour Name */}
-        <Typography
-          variant="h6"
-          component="h2"
-          gutterBottom
-          sx={{
-            fontWeight: 600,
-            lineHeight: 1.2,
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-          }}
-        >
-          {tour.name}
-        </Typography>
-
-        {/* Short Description */}
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          sx={{
-            mb: 2,
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-          }}
-        >
-          {tour.shortDescription}
-        </Typography>
-
-        {/* Location */}
-        <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-          <LocationOn sx={{ fontSize: 16, color: "grey.600", mr: 0.5 }} />
-          <Typography variant="body2" color="text.secondary">
-            {tour.location.city}, {tour.location.country}
-          </Typography>
+          {/* Availability Badge */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <Chip
+              icon={availabilityInfo.icon}
+              label={availabilityInfo.label}
+              color={availabilityInfo.color}
+              size="small"
+              sx={{
+                position: "absolute",
+                top: 8,
+                left: 8,
+                fontWeight: 600,
+              }}
+            />
+          </motion.div>
         </Box>
 
-        {/* Duration */}
-        <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-          <Schedule sx={{ fontSize: 16, color: "grey.600", mr: 0.5 }} />
-          <Typography variant="body2" color="text.secondary">
-            {tour.duration.days} Days {tour.duration.nights} Nights
-          </Typography>
-        </Box>
-
-        {/* Availability Info - Only show if inventory data is available */}
-        {nextAvailable && (
-          <Box sx={{ mb: 2, p: 1, bgcolor: "success.50", borderRadius: 1 }}>
-            <Typography
-              variant="caption"
-              color="success.main"
-              sx={{ fontWeight: 600 }}
+        <CardContent sx={{ flexGrow: 1, p: 2 }}>
+          {/* Tour Category */}
+          {tour.category && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.1 }}
             >
-              Next Available:{" "}
-              {new Date(nextAvailable.date).toLocaleDateString()}
+              <Chip
+                label={tour.category}
+                size="small"
+                color="primary"
+                sx={{ mb: 1 }}
+              />
+            </motion.div>
+          )}
+
+          {/* Tour Name */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <Typography
+              variant="h6"
+              component="h2"
+              gutterBottom
+              sx={{
+                fontWeight: 600,
+                lineHeight: 1.2,
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }}
+            >
+              {tour.name}
             </Typography>
-            <Box sx={{ display: "flex", gap: 1, mt: 0.5 }}>
-              <Typography variant="caption" color="text.secondary">
-                {nextAvailable.slotsLeft} slots left
+          </motion.div>
+
+          {/* Short Description */}
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{
+              mb: 2,
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {tour.shortDescription}
+          </Typography>
+
+          {/* Location */}
+          <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+            <LocationOn sx={{ fontSize: 16, color: "grey.600", mr: 0.5 }} />
+            <Typography variant="body2" color="text.secondary">
+              {tour.location.city}, {tour.location.country}
+            </Typography>
+          </Box>
+
+          {/* Duration */}
+          <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+            <Schedule sx={{ fontSize: 16, color: "grey.600", mr: 0.5 }} />
+            <Typography variant="body2" color="text.secondary">
+              {tour.duration.days} Days {tour.duration.nights} Nights
+            </Typography>
+          </Box>
+
+          {/* Availability Info - Only show if inventory data is available */}
+          {nextAvailable && (
+            <Box sx={{ mb: 2, p: 1, bgcolor: "success.50", borderRadius: 1 }}>
+              <Typography
+                variant="caption"
+                color="success.main"
+                sx={{ fontWeight: 600 }}
+              >
+                Next Available:{" "}
+                {new Date(nextAvailable.date).toLocaleDateString()}
               </Typography>
-              {nextAvailable.hotelAvailable && (
-                <Chip
-                  icon={<Hotel sx={{ fontSize: 12 }} />}
-                  label="Hotel"
-                  size="small"
-                  variant="outlined"
-                  sx={{ height: 16, fontSize: "0.65rem" }}
-                />
-              )}
-              {nextAvailable.transportAvailable && (
-                <Chip
-                  icon={<DirectionsBus sx={{ fontSize: 12 }} />}
-                  label="Transport"
-                  size="small"
-                  variant="outlined"
-                  sx={{ height: 16, fontSize: "0.65rem" }}
-                />
-              )}
-            </Box>
-          </Box>
-        )}
-
-        <Divider sx={{ my: 1 }} />
-
-        {/* Price and Rating */}
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            mb: 2,
-          }}
-        >
-          <Box sx={{ display: "flex", alignItems: "center" }}>
-            <AttachMoney sx={{ fontSize: 18, color: "primary.main" }} />
-            <Typography variant="h6" color="primary" sx={{ fontWeight: 600 }}>
-              {tour.price.currency} {tour.price.amount.toLocaleString()}
-            </Typography>
-          </Box>
-
-          {/* Rating (if available) */}
-          {tour.rating && (
-            <Box sx={{ display: "flex", alignItems: "center" }}>
-              <Star sx={{ fontSize: 16, color: "orange", mr: 0.5 }} />
-              <Typography variant="body2">{tour.rating}/5</Typography>
+              <Box sx={{ display: "flex", gap: 1, mt: 0.5 }}>
+                <Typography variant="caption" color="text.secondary">
+                  {nextAvailable.slotsLeft} slots left
+                </Typography>
+                {nextAvailable.hotelAvailable && (
+                  <Chip
+                    icon={<Hotel sx={{ fontSize: 12 }} />}
+                    label="Hotel"
+                    size="small"
+                    variant="outlined"
+                    sx={{ height: 16, fontSize: "0.65rem" }}
+                  />
+                )}
+                {nextAvailable.transportAvailable && (
+                  <Chip
+                    icon={<DirectionsBus sx={{ fontSize: 12 }} />}
+                    label="Transport"
+                    size="small"
+                    variant="outlined"
+                    sx={{ height: 16, fontSize: "0.65rem" }}
+                  />
+                )}
+              </Box>
             </Box>
           )}
-        </Box>
 
-        {/* Status */}
-        {tour.status && (
-          <Chip
-            label={tour.status.toUpperCase()}
-            size="small"
-            color={tour.status === "active" ? "success" : "default"}
-            sx={{ mb: 2 }}
-          />
-        )}
+          <Divider sx={{ my: 1 }} />
 
-        {/* Book Button */}
-        <Button
-          variant="contained"
-          fullWidth
-          onClick={handleBookNow}
-          disabled={
-            tour.status === "inactive" || availabilityInfo.status === "soldout"
-          }
-          sx={{
-            mt: "auto",
-            fontWeight: 600,
-            py: 1,
-            borderRadius: 1.5,
-            textTransform: "none",
-            fontSize: "0.9rem",
-          }}
-        >
-          {availabilityInfo.status === "soldout" ? "Sold Out" : "Book Now"}
-        </Button>
-      </CardContent>
-    </Card>
+          {/* Price and Rating */}
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              mb: 2,
+            }}
+          >
+            <Box sx={{ display: "flex", alignItems: "center" }}>
+              <AttachMoney sx={{ fontSize: 18, color: "primary.main" }} />
+              <Typography variant="h6" color="primary" sx={{ fontWeight: 600 }}>
+                {tour.price.currency} {tour.price.amount.toLocaleString()}
+              </Typography>
+            </Box>
+
+            {/* Rating (if available) */}
+            {tour.rating && (
+              <Box sx={{ display: "flex", alignItems: "center" }}>
+                <Star sx={{ fontSize: 16, color: "orange", mr: 0.5 }} />
+                <Typography variant="body2">{tour.rating}/5</Typography>
+              </Box>
+            )}
+          </Box>
+
+          {/* Status */}
+          {tour.status && (
+            <Chip
+              label={tour.status.toUpperCase()}
+              size="small"
+              color={tour.status === "active" ? "success" : "default"}
+              sx={{ mb: 2 }}
+            />
+          )}
+
+          {/* Book Now Button */}
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <Button
+              variant="contained"
+              fullWidth
+              onClick={handleBookNow}
+              disabled={availabilityInfo.status === "soldout"}
+              sx={{ mt: 2 }}
+            >
+              {availabilityInfo.status === "soldout" ? "Sold Out" : "Book Now"}
+            </Button>
+          </motion.div>
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 };
 

@@ -1,4 +1,22 @@
 const Payment = require("../models/Payment");
+const axios = require("axios");
+
+// Simple helper function
+const callTravelScheduleService = async (endpoint, data = {}) => {
+  try {
+    const response = await axios.post(
+      `${process.env.TRAVEL_SCHEDULE_SERVICE_URL}${endpoint}`,
+      data,
+      {
+        timeout: 5000,
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.warn("TravelSchedule service unavailable:", error.message);
+    return null;
+  }
+};
 
 module.exports = {
   Query: {
@@ -16,16 +34,19 @@ module.exports = {
         invoiceNumber: payment.invoiceDetails.invoiceNumber,
         createdAt: payment.invoiceDetails.dateIssued.toISOString(),
         updatedAt: payment.invoiceDetails.dateIssued.toISOString(),
+        travelScheduleId: payment.travelScheduleId,
+        bookingId: payment.bookingId,
+        userId: payment.userId,
       };
     },
 
     listPayments: async () => {
       try {
         const payments = await Payment.find();
-        console.log("Raw payments from DB:", payments); // Debug log
+        console.log("Raw payments from DB:", payments);
 
         const transformedPayments = payments.map((payment) => {
-          console.log("Transforming payment:", payment._id); // Debug log
+          console.log("Transforming payment:", payment._id);
           return {
             id: payment._id,
             method: payment.paymentMethod,
@@ -34,21 +55,91 @@ module.exports = {
             invoiceNumber: payment.invoiceDetails.invoiceNumber,
             createdAt: payment.invoiceDetails.dateIssued.toISOString(),
             updatedAt: payment.invoiceDetails.dateIssued.toISOString(),
+            travelScheduleId: payment.travelScheduleId,
+            bookingId: payment.bookingId,
+            userId: payment.userId,
           };
         });
 
-        console.log("Transformed payments:", transformedPayments); // Debug log
+        console.log("Transformed payments:", transformedPayments);
         return transformedPayments;
       } catch (error) {
         console.error("Error in listPayments:", error);
         throw error;
       }
     },
+
+    // Endpoint utama untuk travelschedule service
+    getTravelSchedulePaymentStatus: async (_, { travelScheduleId }) => {
+      const payment = await Payment.findOne({
+        travelScheduleId,
+        status: { $in: ["completed", "pending", "failed"] },
+      }).sort({ createdAt: -1 }); // Ambil payment terbaru
+
+      if (!payment) {
+        return {
+          travelScheduleId,
+          isPaid: false,
+          paymentStatus: "not_found",
+          paymentId: null,
+          amount: null,
+          paidAt: null,
+        };
+      }
+
+      return {
+        travelScheduleId,
+        isPaid: payment.status === "completed",
+        paymentStatus: payment.status,
+        paymentId: payment._id,
+        amount: payment.amount,
+        paidAt:
+          payment.status === "completed"
+            ? payment.invoiceDetails.dateIssued.toISOString()
+            : null,
+      };
+    },
+
+    // Semua pembayaran untuk travel schedule tertentu
+    getPaymentsByTravelSchedule: async (_, { travelScheduleId }) => {
+      const payments = await Payment.find({ travelScheduleId });
+
+      return payments.map((payment) => ({
+        id: payment._id,
+        method: payment.paymentMethod,
+        amount: payment.amount,
+        status: payment.status,
+        invoiceNumber: payment.invoiceDetails.invoiceNumber,
+        createdAt: payment.invoiceDetails.dateIssued.toISOString(),
+        updatedAt: payment.invoiceDetails.dateIssued.toISOString(),
+        travelScheduleId: payment.travelScheduleId,
+        bookingId: payment.bookingId,
+        userId: payment.userId,
+      }));
+    },
+
+    // Untuk booking service
+    getPaymentsByBooking: async (_, { bookingId }) => {
+      const payments = await Payment.find({ bookingId });
+
+      return payments.map((payment) => ({
+        id: payment._id,
+        method: payment.paymentMethod,
+        amount: payment.amount,
+        status: payment.status,
+        invoiceNumber: payment.invoiceDetails.invoiceNumber,
+        createdAt: payment.invoiceDetails.dateIssued.toISOString(),
+        updatedAt: payment.invoiceDetails.dateIssued.toISOString(),
+        travelScheduleId: payment.travelScheduleId,
+        bookingId: payment.bookingId,
+        userId: payment.userId,
+      }));
+    },
   },
 
   Mutation: {
     processPayment: async (_, { input }) => {
-      const { method, amount } = input;
+      const { method, amount, travelScheduleId, bookingId, userId } = input;
 
       const invoiceNumber = `INV-${Date.now()}`;
 
@@ -56,6 +147,9 @@ module.exports = {
         paymentMethod: method,
         amount,
         status: "pending",
+        travelScheduleId,
+        bookingId,
+        userId,
         invoiceDetails: {
           invoiceNumber,
           dateIssued: new Date(),
@@ -73,6 +167,9 @@ module.exports = {
         invoiceNumber: payment.invoiceDetails.invoiceNumber,
         createdAt: payment.invoiceDetails.dateIssued.toISOString(),
         updatedAt: payment.invoiceDetails.dateIssued.toISOString(),
+        travelScheduleId: payment.travelScheduleId,
+        bookingId: payment.bookingId,
+        userId: payment.userId,
       };
     },
 
@@ -105,6 +202,9 @@ module.exports = {
           invoiceNumber: updatedPayment.invoiceDetails.invoiceNumber,
           createdAt: updatedPayment.invoiceDetails.dateIssued.toISOString(),
           updatedAt: new Date().toISOString(),
+          travelScheduleId: updatedPayment.travelScheduleId,
+          bookingId: updatedPayment.bookingId,
+          userId: updatedPayment.userId,
         },
       };
 
@@ -124,6 +224,8 @@ module.exports = {
         Amount: $${payment.amount}
         Method: ${payment.paymentMethod}
         Status: ${payment.status}
+        Travel Schedule ID: ${payment.travelScheduleId || "N/A"}
+        Booking ID: ${payment.bookingId || "N/A"}
       `;
 
       return invoice;

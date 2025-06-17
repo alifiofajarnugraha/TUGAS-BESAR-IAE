@@ -14,6 +14,7 @@ import {
 } from "@mui/material";
 import { useAuth } from "../context/AuthContext";
 import { QUERIES, MUTATIONS, userService } from "../services/api";
+import { motion } from "framer-motion";
 
 function Profile() {
   const { user, updateUser } = useAuth();
@@ -115,115 +116,178 @@ function Profile() {
   }
 
   return (
-    <Container component="main" maxWidth="md" sx={{ mt: 4, mb: 4 }}>
-      <Paper elevation={3} sx={{ p: 4 }}>
-        <Grid container spacing={4}>
-          {/* Left side - Avatar and basic info */}
-          <Grid item xs={12} md={4} sx={{ textAlign: "center" }}>
-            <Avatar
-              sx={{
-                width: 120,
-                height: 120,
-                margin: "0 auto",
-                bgcolor: "primary.main",
-                fontSize: "3rem",
-              }}
-            >
-              {user?.name?.charAt(0).toUpperCase()}
-            </Avatar>
-            <Typography variant="h5" sx={{ mt: 2 }}>
-              {user?.name}
-            </Typography>
-            <Typography color="textSecondary">
-              {user?.role?.charAt(0).toUpperCase() + user?.role?.slice(1)}
-            </Typography>
-          </Grid>
-
-          {/* Right side - Profile details form */}
-          <Grid item xs={12} md={8}>
-            <Box component="form" onSubmit={handleSubmit}>
-              {error && (
-                <Alert severity="error" sx={{ mb: 2 }}>
-                  {error}
-                </Alert>
-              )}
-              {success && (
-                <Alert severity="success" sx={{ mb: 2 }}>
-                  {success}
-                </Alert>
-              )}
-
-              <TextField
-                margin="normal"
-                fullWidth
-                id="name"
-                label="Full Name"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                disabled={!isEditing}
-              />
-              <TextField
-                margin="normal"
-                fullWidth
-                id="email"
-                label="Email Address"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                disabled={!isEditing}
-              />
-              <TextField
-                margin="normal"
-                fullWidth
-                id="role"
-                label="Role"
-                value={user?.role || ""}
-                disabled
-              />
-
-              <Box sx={{ mt: 3, display: "flex", gap: 2 }}>
-                {!isEditing ? (
-                  <Button
-                    variant="contained"
-                    onClick={handleEditClick} // Use new handler
-                    type="button" // Explicitly set type to button
-                    fullWidth
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      <Container component="main" maxWidth="md" sx={{ mt: 4, mb: 4 }}>
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.2 }}
+        >
+          <Paper 
+            elevation={3} 
+            sx={{ 
+              p: 4,
+              borderRadius: 2,
+              background: "linear-gradient(45deg, #ffffff 30%, #f5f5f5 90%)"
+            }}
+          >
+            <Grid container spacing={4}>
+              {/* Left side - Avatar and basic info */}
+              <Grid item xs={12} md={4} sx={{ textAlign: "center" }}>
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <Avatar
+                    sx={{
+                      width: 120,
+                      height: 120,
+                      margin: "0 auto",
+                      bgcolor: "primary.main",
+                      fontSize: "3rem",
+                      boxShadow: 3
+                    }}
                   >
-                    Edit Profile
-                  </Button>
-                ) : (
-                  <>
-                    <Button
-                      type="submit"
-                      variant="contained"
-                      disabled={updateLoading}
-                      sx={{ flex: 1 }}
+                    {user?.name?.charAt(0).toUpperCase()}
+                  </Avatar>
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                >
+                  <Typography variant="h5" sx={{ mt: 2, fontWeight: "bold" }}>
+                    {user?.name}
+                  </Typography>
+                  <Typography 
+                    color="primary"
+                    sx={{ 
+                      textTransform: "capitalize",
+                      fontWeight: 500
+                    }}
+                  >
+                    {user?.role}
+                  </Typography>
+                </motion.div>
+              </Grid>
+
+              {/* Right side - Profile details form */}
+              <Grid item xs={12} md={8}>
+                <Box component="form" onSubmit={handleSubmit}>
+                  {error && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
                     >
-                      {updateLoading ? "Saving..." : "Save Changes"}
-                    </Button>
-                    <Button
-                      type="button" // Explicitly set type to button
-                      variant="outlined"
-                      onClick={() => {
-                        setIsEditing(false);
-                        setFormData({
-                          name: user?.name || "",
-                          email: user?.email || "",
-                        });
-                      }}
-                      sx={{ flex: 1 }}
+                      <Alert severity="error" sx={{ mb: 2 }}>
+                        {error}
+                      </Alert>
+                    </motion.div>
+                  )}
+                  {success && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
                     >
-                      Cancel
-                    </Button>
-                  </>
-                )}
-              </Box>
-            </Box>
-          </Grid>
-        </Grid>
-      </Paper>
-    </Container>
+                      <Alert severity="success" sx={{ mb: 2 }}>
+                        {success}
+                      </Alert>
+                    </motion.div>
+                  )}
+
+                  {[
+                    { name: "name", label: "Full Name" },
+                    { name: "email", label: "Email Address" },
+                    { name: "role", label: "Role", disabled: true }
+                  ].map((field, index) => (
+                    <motion.div
+                      key={field.name}
+                      initial={{ x: 20, opacity: 0 }}
+                      animate={{ x: 0, opacity: 1 }}
+                      transition={{ delay: 0.4 + index * 0.1 }}
+                    >
+                      <TextField
+                        margin="normal"
+                        fullWidth
+                        id={field.name}
+                        label={field.label}
+                        name={field.name}
+                        value={field.name === "role" ? user?.role : formData[field.name]}
+                        onChange={handleChange}
+                        disabled={!isEditing || field.disabled}
+                      />
+                    </motion.div>
+                  ))}
+
+                  <Box sx={{ mt: 3, display: "flex", gap: 2 }}>
+                    {!isEditing ? (
+                      <motion.div
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        style={{ width: "100%" }}
+                      >
+                        <Button
+                          variant="contained"
+                          onClick={handleEditClick}
+                          type="button"
+                          fullWidth
+                          sx={{ height: 48 }}
+                        >
+                          Edit Profile
+                        </Button>
+                      </motion.div>
+                    ) : (
+                      <>
+                        <motion.div
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          style={{ flex: 1 }}
+                        >
+                          <Button
+                            type="submit"
+                            variant="contained"
+                            disabled={updateLoading}
+                            fullWidth
+                            sx={{ height: 48 }}
+                          >
+                            {updateLoading ? "Saving..." : "Save Changes"}
+                          </Button>
+                        </motion.div>
+                        <motion.div
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          style={{ flex: 1 }}
+                        >
+                          <Button
+                            type="button"
+                            variant="outlined"
+                            onClick={() => {
+                              setIsEditing(false);
+                              setFormData({
+                                name: user?.name || "",
+                                email: user?.email || "",
+                              });
+                            }}
+                            fullWidth
+                            sx={{ height: 48 }}
+                          >
+                            Cancel
+                          </Button>
+                        </motion.div>
+                      </>
+                    )}
+                  </Box>
+                </Box>
+              </Grid>
+            </Grid>
+          </Paper>
+        </motion.div>
+      </Container>
+    </motion.div>
   );
 }
 

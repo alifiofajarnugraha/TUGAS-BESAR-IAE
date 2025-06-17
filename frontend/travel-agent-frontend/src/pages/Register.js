@@ -12,6 +12,7 @@ import {
 } from "@mui/material";
 import { useMutation } from "@apollo/client";
 import { MUTATIONS, userService } from "../services/api";
+import { motion } from "framer-motion";
 
 function Register() {
   const navigate = useNavigate();
@@ -69,90 +70,141 @@ function Register() {
   };
 
   return (
-    <Container component="main" maxWidth="xs">
-      <Box
-        sx={{
-          marginTop: 8,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-        }}
-      >
-        <Paper elevation={3} sx={{ p: 4, width: "100%" }}>
-          <Typography component="h1" variant="h5" align="center" gutterBottom>
-            Sign Up
-          </Typography>
-
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-
-          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="name"
-              label="Full Name"
-              name="name"
-              autoComplete="name"
-              autoFocus
-              value={formData.name}
-              onChange={handleChange}
-            />
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="email"
-              label="Email Address"
-              name="email"
-              autoComplete="email"
-              value={formData.email}
-              onChange={handleChange}
-            />
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              name="password"
-              label="Password"
-              type="password"
-              id="password"
-              value={formData.password}
-              onChange={handleChange}
-            />
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              name="confirmPassword"
-              label="Confirm Password"
-              type="password"
-              id="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-            />
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              sx={{ mt: 3, mb: 2 }}
-              disabled={loading}
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      <Container component="main" maxWidth="xs">
+        <Box
+          sx={{
+            marginTop: 8,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+          }}
+        >
+          <motion.div
+            initial={{ y: -20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.2 }}
+          >
+            <Paper 
+              elevation={3} 
+              sx={{ 
+                p: 4, 
+                width: "100%",
+                borderRadius: 2,
+                background: "linear-gradient(45deg, #ffffff 30%, #f5f5f5 90%)"
+              }}
             >
-              {loading ? "Signing up..." : "Sign Up"}
-            </Button>
-            <Box sx={{ textAlign: "center" }}>
-              <Link component={RouterLink} to="/login" variant="body2">
-                {"Already have an account? Sign In"}
-              </Link>
-            </Box>
-          </Box>
-        </Paper>
-      </Box>
-    </Container>
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.3 }}
+              >
+                <Typography 
+                  component="h1" 
+                  variant="h5" 
+                  align="center" 
+                  gutterBottom
+                  sx={{ 
+                    color: "primary.main",
+                    fontWeight: "bold"
+                  }}
+                >
+                  Join Our Adventure
+                </Typography>
+              </motion.div>
+
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    {error}
+                  </Alert>
+                </motion.div>
+              )}
+
+              <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
+                {[
+                  { name: "name", label: "Full Name", type: "text" },
+                  { name: "email", label: "Email Address", type: "email" },
+                  { name: "password", label: "Password", type: "password" },
+                  { name: "confirmPassword", label: "Confirm Password", type: "password" }
+                ].map((field, index) => (
+                  <motion.div
+                    key={field.name}
+                    initial={{ x: -20, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    transition={{ delay: 0.3 + index * 0.1 }}
+                  >
+                    <TextField
+                      margin="normal"
+                      required
+                      fullWidth
+                      id={field.name}
+                      label={field.label}
+                      name={field.name}
+                      type={field.type}
+                      autoComplete={field.name}
+                      value={formData[field.name]}
+                      onChange={handleChange}
+                      autoFocus={index === 0}
+                    />
+                  </motion.div>
+                ))}
+
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <Button
+                    type="submit"
+                    fullWidth
+                    variant="contained"
+                    sx={{ 
+                      mt: 3, 
+                      mb: 2,
+                      height: 48,
+                      fontSize: "1.1rem"
+                    }}
+                    disabled={loading}
+                  >
+                    {loading ? "Creating Account..." : "Sign Up"}
+                  </Button>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.7 }}
+                >
+                  <Box sx={{ textAlign: "center" }}>
+                    <Link 
+                      component={RouterLink} 
+                      to="/login" 
+                      variant="body2"
+                      sx={{
+                        color: "primary.main",
+                        textDecoration: "none",
+                        "&:hover": {
+                          textDecoration: "underline"
+                        }
+                      }}
+                    >
+                      {"Already have an account? Sign In"}
+                    </Link>
+                  </Box>
+                </motion.div>
+              </Box>
+            </Paper>
+          </motion.div>
+        </Box>
+      </Container>
+    </motion.div>
   );
 }
 

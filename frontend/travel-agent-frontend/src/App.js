@@ -8,6 +8,7 @@ import { AuthProvider } from "./context/AuthContext";
 
 // Components
 import Navbar from "./components/Navbar";
+import Footer from "./components/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 // Pages
@@ -26,22 +27,39 @@ import AdminBookings from "./pages/admin/AdminBookings";
 const theme = createTheme({
   palette: {
     primary: {
-      main: "#1976d2",
+      main: "#6366f1",
     },
     secondary: {
-      main: "#dc004e",
+      main: "#8b5cf6",
     },
     background: {
-      default: "#f5f5f5",
+      default: "#ffffff",
     },
   },
   typography: {
-    fontFamily: ["Roboto", "Arial", "sans-serif"].join(","),
+    fontFamily: ["Inter", "Roboto", "Arial", "sans-serif"].join(","),
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 8,
+          textTransform: "none",
+          fontWeight: 600,
+        },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          borderRadius: 12,
+        },
+      },
+    },
   },
 });
 
 function App() {
-  console.log("App is rendering");
   return (
     <ThemeProvider theme={theme}>
       <LocalizationProvider dateAdapter={AdapterDateFns}>
@@ -118,6 +136,7 @@ function App() {
               }
             />
           </Routes>
+          <Footer />
         </AuthProvider>
       </LocalizationProvider>
     </ThemeProvider>

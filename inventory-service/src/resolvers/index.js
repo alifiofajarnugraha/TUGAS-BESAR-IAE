@@ -1,4 +1,23 @@
 const Inventory = require("../models/Inventory");
+const axios = require("axios");
+const TOUR_SERVICE_URL = "http://localhost:3002/graphql";
+
+// Helper untuk cek tourId
+async function validateTourId(tourId) {
+  const query = `
+    query($id: ID!) {
+      getTourPackage(id: $id) {
+        id
+      }
+    }
+  `;
+  const response = await axios.post(
+    TOUR_SERVICE_URL,
+    { query, variables: { id: tourId } },
+    { headers: { "Content-Type": "application/json" } }
+  );
+  return !!response.data.data.getTourPackage;
+}
 
 module.exports = {
   Query: {
@@ -37,36 +56,30 @@ module.exports = {
 
   Mutation: {
     updateInventory: async (_, { input }) => {
+      const { tourId, date, slots, hotelAvailable, transportAvailable } = input;
+      const isValid = await validateTourId(tourId);
+      if (!isValid) {
+        throw new Error("Invalid tourId: Tour does not exist");
+      }
       try {
-        console.log("Update inventory input:", input);
-        const { tourId, date, slots, hotelAvailable, transportAvailable } =
-          input;
-
-        let inventory = await Inventory.findOne({ tourId, date });
-
-        if (inventory) {
-          // Update existing
-          inventory.slots = slots;
-          inventory.hotelAvailable = hotelAvailable;
-          inventory.transportAvailable = transportAvailable;
-          inventory.updatedAt = new Date().toISOString();
-          await inventory.save();
-        } else {
-          // Create new
-          inventory = new Inventory({
-            tourId,
-            date,
-            slots,
-            hotelAvailable,
-            transportAvailable,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          });
-          await inventory.save();
-        }
-
-        console.log("Updated inventory:", inventory);
-        return inventory;
+        const updatedAt = new Date().toISOString();
+        const inv = await Inventory.findOneAndUpdate(
+          { tourId, date },
+          {
+            $set: {
+              slots,
+              hotelAvailable,
+              transportAvailable,
+              updatedAt,
+            },
+            $setOnInsert: {
+              createdAt: updatedAt,
+            },
+          },
+          { new: true, upsert: true }
+        );
+        console.log("Updated inventory:", inv);
+        return inv;
       } catch (error) {
         console.error("Update inventory error:", error);
         throw error;

@@ -42,7 +42,7 @@ const typeDefs = gql`
     participants: Int!
   }
 
-  input InventoryInput {
+  input InventoryUpdateInput {
     tourId: ID!
     date: String!
     slots: Int!
@@ -63,7 +63,7 @@ const typeDefs = gql`
 
   type Mutation {
     reserveSlots(input: ReservationInput!): ReservationResult!
-    updateInventory(input: InventoryInput!): Inventory!
+    updateInventory(input: InventoryUpdateInput!): Inventory!
     deleteTour(tourId: ID!): DeleteResult!
   }
 `;

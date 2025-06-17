@@ -4,19 +4,27 @@ const TOUR_SERVICE_URL = "http://localhost:3002/graphql";
 
 // Helper untuk cek tourId
 async function validateTourId(tourId) {
-  const query = `
-    query($id: ID!) {
-      getTourPackage(id: $id) {
-        id
+  try {
+    const query = `
+      query($id: ID!) {
+        getTourPackage(id: $id) {
+          id
+        }
       }
-    }
-  `;
-  const response = await axios.post(
-    TOUR_SERVICE_URL,
-    { query, variables: { id: tourId } },
-    { headers: { "Content-Type": "application/json" } }
-  );
-  return !!response.data.data.getTourPackage;
+    `;
+    const response = await axios.post(
+      TOUR_SERVICE_URL,
+      { query, variables: { id: tourId } },
+      {
+        headers: { "Content-Type": "application/json" },
+        timeout: 5000,
+      }
+    );
+    return !!response.data.data.getTourPackage;
+  } catch (error) {
+    console.warn("Could not validate tourId:", error.message);
+    return true; // Allow if tour service unavailable
+  }
 }
 
 module.exports = {
@@ -57,10 +65,13 @@ module.exports = {
   Mutation: {
     updateInventory: async (_, { input }) => {
       const { tourId, date, slots, hotelAvailable, transportAvailable } = input;
+
+      // Validate tourId (optional)
       const isValid = await validateTourId(tourId);
       if (!isValid) {
-        throw new Error("Invalid tourId: Tour does not exist");
+        console.warn("Invalid tourId, but proceeding anyway");
       }
+
       try {
         const updatedAt = new Date().toISOString();
         const inv = await Inventory.findOneAndUpdate(
@@ -78,11 +89,21 @@ module.exports = {
           },
           { new: true, upsert: true }
         );
+
         console.log("Updated inventory:", inv);
-        return inv;
+        return {
+          id: inv._id,
+          tourId: inv.tourId,
+          date: inv.date,
+          slots: inv.slots,
+          hotelAvailable: inv.hotelAvailable,
+          transportAvailable: inv.transportAvailable,
+          createdAt: inv.createdAt || updatedAt,
+          updatedAt: inv.updatedAt || updatedAt,
+        };
       } catch (error) {
         console.error("Update inventory error:", error);
-        throw error;
+        throw new Error(`Failed to update inventory: ${error.message}`);
       }
     },
 

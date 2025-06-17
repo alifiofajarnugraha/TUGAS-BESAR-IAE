@@ -1,4 +1,23 @@
 const Inventory = require("../models/Inventory");
+const axios = require("axios");
+const TOUR_SERVICE_URL = "http://localhost:3002/graphql";
+
+// Helper untuk cek tourId
+async function validateTourId(tourId) {
+  const query = `
+    query($id: ID!) {
+      getTourPackage(id: $id) {
+        id
+      }
+    }
+  `;
+  const response = await axios.post(
+    TOUR_SERVICE_URL,
+    { query, variables: { id: tourId } },
+    { headers: { "Content-Type": "application/json" } }
+  );
+  return !!response.data.data.getTourPackage;
+}
 
 module.exports = {
   Query: {
@@ -39,6 +58,10 @@ module.exports = {
     // Update/Set inventory (slot, hotel, transport) untuk 1 tour pada 1 tanggal
     updateInventory: async (_, { input }) => {
       const { tourId, date, slots, hotelAvailable, transportAvailable } = input;
+      const isValid = await validateTourId(input.tourId);
+      if (!isValid) {
+        throw new Error("Invalid tourId: Tour does not exist");
+      }
       const inv = await Inventory.findOneAndUpdate(
         { tourId, date },
         {

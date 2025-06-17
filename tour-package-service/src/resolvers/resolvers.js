@@ -77,6 +77,7 @@ const resolvers = {
         return tours.map((tour) => ({
           id: tour._id ? tour._id.toString() : null,
           ...tour.toObject(),
+          validDate: tour.validDate ? tour.validDate.toISOString() : null,
         }));
       } catch (error) {
         throw new Error(`Error fetching tour packages: ${error}`);
@@ -118,6 +119,7 @@ const resolvers = {
             inventoryData?.getInventoryStatus?.some(
               (inv) => inv.slotsLeft > 0
             ) || false,
+          validDate: tourPackage.validDate ? tourPackage.validDate.toISOString() : null,
         };
       } catch (error) {
         throw new Error(`Error fetching tour package: ${error}`);
@@ -130,6 +132,7 @@ const resolvers = {
         return tours.map((tour) => ({
           id: tour._id.toString(),
           ...tour.toObject(),
+          validDate: tour.validDate ? tour.validDate.toISOString() : null,
         }));
       } catch (error) {
         throw new Error(`Error fetching tour packages by category: ${error}`);
@@ -151,6 +154,7 @@ const resolvers = {
         return tours.map((tour) => ({
           id: tour._id.toString(),
           ...tour.toObject(),
+          validDate: tour.validDate ? tour.validDate.toISOString() : null,
         }));
       } catch (error) {
         throw new Error(`Error searching tour packages: ${error}`);
@@ -404,6 +408,7 @@ const resolvers = {
       try {
         const newTourPackage = new TourPackage({
           ...input,
+          validDate: input.validDate ? new Date(input.validDate) : null,
           status: input.status || "active",
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -444,6 +449,7 @@ const resolvers = {
         return {
           id: savedTour._id.toString(),
           ...savedTour.toObject(),
+          validDate: savedTour.validDate ? savedTour.validDate.toISOString() : null,
         };
       } catch (error) {
         throw new Error(`Error creating tour package: ${error}`);
@@ -458,7 +464,7 @@ const resolvers = {
 
         const updatedTourPackage = await TourPackage.findByIdAndUpdate(
           id,
-          { ...input, updatedAt: new Date().toISOString() },
+          { ...input, validDate: input.validDate ? new Date(input.validDate) : null, updatedAt: new Date().toISOString() },
           { new: true, runValidators: true }
         );
 
@@ -469,6 +475,7 @@ const resolvers = {
         return {
           id: updatedTourPackage._id.toString(),
           ...updatedTourPackage.toObject(),
+          validDate: updatedTourPackage.validDate ? updatedTourPackage.validDate.toISOString() : null,
         };
       } catch (error) {
         throw new Error(`Error updating tour package: ${error}`);
@@ -493,6 +500,7 @@ const resolvers = {
         return {
           id: deletedTourPackage._id.toString(),
           ...deletedTourPackage.toObject(),
+          validDate: deletedTourPackage.validDate ? deletedTourPackage.validDate.toISOString() : null,
         };
       } catch (error) {
         throw new Error(`Error deleting tour package: ${error}`);

@@ -1,15 +1,16 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom"; // Tambahkan import ini
 import { useQuery, useMutation } from "@apollo/client";
 import {
   Container,
   Paper,
   Typography,
+  Box,
+  Grid,
   Card,
   CardContent,
-  Grid,
   Chip,
   Button,
-  Box,
   Alert,
   CircularProgress,
   Dialog,
@@ -17,10 +18,26 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  Divider,
+  List,
+  ListItem,
+  ListItemText,
+  Avatar,
 } from "@mui/material";
-import { QUERIES, MUTATIONS, bookingService } from "../services/api";
+import {
+  CalendarToday,
+  LocationOn,
+  Group,
+  Cancel,
+  CheckCircle,
+  Pending,
+  Payment,
+} from "@mui/icons-material";
+import { motion } from "framer-motion";
+import { bookingService, QUERIES, MUTATIONS } from "../services/api";
 
 function MyBookings() {
+  const navigate = useNavigate(); // Tambahkan hook ini
   const [cancelDialog, setCancelDialog] = React.useState({
     open: false,
     booking: null,
@@ -206,19 +223,20 @@ function MyBookings() {
                         color="error"
                         onClick={() => setCancelDialog({ open: true, booking })}
                         size="small"
+                        sx={{ mr: 1 }}
                       >
                         Cancel Booking
                       </Button>
                     )}
-                    {booking.status === "CONFIRMED" &&
+                    {(booking.status === "CONFIRMED" ||
+                      booking.status === "PENDING") &&
                       booking.paymentStatus === "PENDING" && (
                         <Button
                           variant="contained"
                           color="primary"
                           size="small"
-                          onClick={() => {
-                            /* Navigate to payment */
-                          }}
+                          onClick={() => navigate(`/payment/${booking.id}`)} // Sekarang navigate sudah terdefinisi
+                          startIcon={<Payment />}
                         >
                           Pay Now
                         </Button>

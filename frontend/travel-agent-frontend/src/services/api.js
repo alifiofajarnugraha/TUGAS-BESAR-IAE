@@ -403,7 +403,33 @@ export const MUTATIONS = {
     mutation ProcessPayment($input: PaymentInput!) {
       processPayment(input: $input) {
         id
+        method
+        amount
         status
+        invoiceNumber
+        createdAt
+        updatedAt
+        travelScheduleId
+        bookingId
+        userId
+      }
+    }
+  `,
+
+  UPDATE_PAYMENT_STATUS: gql`
+    mutation UpdatePaymentStatus($paymentId: ID!, $status: String!) {
+      updatePaymentStatus(paymentId: $paymentId, status: $status) {
+        id
+        paymentId
+        status
+        message
+        payment {
+          id
+          status
+          amount
+          method
+          invoiceNumber
+        }
       }
     }
   `,

@@ -23,6 +23,9 @@ import AdminTourPackages from "./pages/admin/AdminTourPackages";
 import TourPackageForm from "./pages/admin/TourPackageForm";
 import MyBookings from "./pages/MyBookings";
 import AdminBookings from "./pages/admin/AdminBookings";
+import TourDetail from "./pages/TourDetail";
+import About from "./pages/About";
+import Contact from "./pages/Contact";
 
 const theme = createTheme({
   palette: {
@@ -71,6 +74,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/tours" element={<Tours />} />
+            <Route path="/tours/:id" element={<TourDetail />} />
             <Route
               path="/book/:tourId"
               element={
@@ -135,6 +139,8 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route path="/about" element={<About />} />
+            <Route path="/contact" element={<Contact />} />
           </Routes>
           <Footer />
         </AuthProvider>

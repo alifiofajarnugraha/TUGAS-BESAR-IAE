@@ -62,7 +62,7 @@ function Navbar() {
   const drawer = (
     <Box onClick={handleDrawerToggle} sx={{ textAlign: "center" }}>
       <Typography variant="h6" sx={{ my: 2 }}>
-        Trip Kuy Indonesia
+        Ticko Travel
       </Typography>
       <List>
         {navigationItems.map((item) => (
@@ -106,7 +106,7 @@ function Navbar() {
               </Box>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <EmailIcon sx={{ fontSize: 16 }} />
-                <Typography variant="body2">hello@tripkuy.co.id</Typography>
+                <Typography variant="body2">hello@tickotravel.co.id</Typography>
               </Box>
             </Box>
             <Box sx={{ display: "flex", gap: 1 }}>
@@ -160,7 +160,7 @@ function Navbar() {
                   fontSize: "1.5rem",
                 }}
               >
-                Trip Kuy Indonesia
+                Ticko Travel
               </Typography>
             </Box>
 

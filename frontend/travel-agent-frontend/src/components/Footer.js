@@ -33,7 +33,7 @@ function Footer() {
             <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
               <Flight sx={{ mr: 2, color: "#6366f1" }} />
               <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                Trip Kuy Indonesia
+                Ticko Travel
               </Typography>
             </Box>
             <Typography variant="body2" sx={{ mb: 3, opacity: 0.8 }}>
@@ -136,7 +136,7 @@ function Footer() {
 
             <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
               <Email sx={{ mr: 2, color: "#6366f1" }} />
-              <Typography variant="body2">hello@tripkuy.co.id</Typography>
+              <Typography variant="body2">hello@tickotravel.co.id</Typography>
             </Box>
 
             <Box sx={{ display: "flex", alignItems: "flex-start", mb: 3 }}>
@@ -208,7 +208,7 @@ function Footer() {
           }}
         >
           <Typography variant="body2" sx={{ opacity: 0.8 }}>
-            © 2024 Trip Kuy Indonesia. All rights reserved.
+            © 2024 Ticko Travel. All rights reserved.
           </Typography>
 
           <Box sx={{ display: "flex", gap: 3 }}>

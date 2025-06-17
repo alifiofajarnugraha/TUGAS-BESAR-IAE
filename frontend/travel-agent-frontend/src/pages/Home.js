@@ -171,7 +171,7 @@ function Home() {
                 textAlign: "center",
               }}
             >
-              5 Hari 4 Malam Menelusuri Keindahan Vietnam
+              Jelajahi Keindahan Nusantara Bersama Ticko Travel
             </Typography>
             <Typography
               variant="h5"
@@ -183,20 +183,20 @@ function Home() {
                 opacity: 0.9,
               }}
             >
-              Dalam trip ini kamu akan diajak menyaksikan panorama menakjubkan
-              dari Ba Na Hills dan Golden Bridge, menyekami sejarah di Imperial
-              Citadel, hingga menikmati romantisme kota tua Hoi An yang dijuluki
-              "The Venice of Vietnam"
+              Temukan pengalaman tak terlupakan di destinasi-destinasi
+              menakjubkan Indonesia. Dari pantai eksotis Bali hingga keajaiban
+              alam Raja Ampat, mari wujudkan petualangan impian Anda bersama
+              kami.
             </Typography>
             <Box sx={{ textAlign: "center", mb: 3 }}>
               <Typography variant="h6" sx={{ mb: 1 }}>
-                Mulai Dari
+                Paket Tour Mulai Dari
               </Typography>
               <Typography
                 variant="h3"
                 sx={{ fontWeight: 700, color: "#ffd700" }}
               >
-                IDR 9.400.000
+                IDR 1.500.000
               </Typography>
             </Box>
             <Box sx={{ textAlign: "center" }}>
@@ -254,7 +254,8 @@ function Home() {
               color: "text.secondary",
             }}
           >
-            Jelajahi keindahan nusantara dengan paket wisata terbaik
+            Jelajahi keindahan nusantara dengan paket wisata terbaik dari Ticko
+            Travel
           </Typography>
 
           <Grid container spacing={3}>
@@ -348,7 +349,7 @@ function Home() {
                 color: "text.secondary",
               }}
             >
-              Pilihan terbaik untuk liburan tak terlupakan
+              Pilihan terbaik untuk liburan tak terlupakan bersama Ticko Travel
             </Typography>
 
             {loading ? (
@@ -499,9 +500,9 @@ function Home() {
                                 bgcolor: "#6366f1",
                                 "&:hover": { bgcolor: "#5855eb" },
                               }}
-                              onClick={() => navigate(`/book/${tour.id}`)}
+                              onClick={() => navigate(`/tours/${tour.id}`)}
                             >
-                              Book Now
+                              View Details
                             </Button>
                           </Box>
                         </CardContent>
@@ -552,7 +553,7 @@ function Home() {
               color: "#1a202c",
             }}
           >
-            Mengapa Memilih Kami?
+            Mengapa Memilih Ticko Travel?
           </Typography>
           <Typography
             variant="h6"
@@ -663,7 +664,7 @@ function Home() {
                 color: "text.secondary",
               }}
             >
-              Testimoni dari pelanggan yang puas
+              Testimoni dari pelanggan yang puas dengan layanan Ticko Travel
             </Typography>
 
             <Grid container spacing={4}>
@@ -756,7 +757,7 @@ function Home() {
               }}
             >
               Dapatkan penawaran terbaik dan update destinasi terbaru langsung
-              di email Anda
+              di email Anda dari Ticko Travel
             </Typography>
 
             <Box

@@ -149,7 +149,6 @@ function TourPackageForm() {
       amount: 0,
       currency: "IDR",
     },
-    maxParticipants: 10,
     inclusions: [""],
     exclusions: [""],
     itinerary: [
@@ -213,8 +212,6 @@ function TourPackageForm() {
             days: parseInt(data.getTourPackage.duration.days, 10) || 1,
             nights: parseInt(data.getTourPackage.duration.nights, 10) || 0,
           },
-          maxParticipants:
-            parseInt(data.getTourPackage.maxParticipants, 10) || 1,
           inclusions: data.getTourPackage.inclusions
             ? [...data.getTourPackage.inclusions]
             : [""],
@@ -307,7 +304,6 @@ function TourPackageForm() {
         amount: parseFloat(data.price.amount) || 0,
         currency: data.price.currency,
       },
-      maxParticipants: parseInt(data.maxParticipants, 10) || 1,
       inclusions: data.inclusions
         ? data.inclusions.filter((item) => item && item.trim() !== "")
         : [],
@@ -647,37 +643,6 @@ function TourPackageForm() {
                       {curr}
                     </MenuItem>
                   ))}
-                </TextField>
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <motion.div whileHover={{ scale: 1.01 }}>
-                  <TextField
-                    fullWidth
-                    type="number"
-                    label="Max Participants"
-                    name="maxParticipants"
-                    value={formData.maxParticipants}
-                    onChange={handleChange}
-                    required
-                    inputProps={{ min: 1, step: "1" }}
-                  />
-                </motion.div>
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  select
-                  label="Status"
-                  name="status"
-                  value={formData.status}
-                  onChange={handleChange}
-                  required
-                >
-                  <MenuItem value="active">Active</MenuItem>
-                  <MenuItem value="inactive">Inactive</MenuItem>
-                  <MenuItem value="soldout">Sold Out</MenuItem>
                 </TextField>
               </Grid>
             </Grid>

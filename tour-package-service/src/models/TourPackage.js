@@ -68,11 +68,6 @@ const tourPackageSchema = new mongoose.Schema({
       enum: ["IDR", "USD", "EUR"],
     },
   },
-  maxParticipants: {
-    type: Number,
-    required: true,
-    min: 1,
-  },
   inclusions: [String],
   exclusions: [String],
   itinerary: [
@@ -110,30 +105,22 @@ const tourPackageSchema = new mongoose.Schema({
   status: {
     type: String,
     required: true,
-    enum: ["active", "inactive", "soldout"],
+    enum: ["active", "inactive", "draft"],
     default: "active",
-  },
-  // Fields for inventory integration
-  defaultSlots: {
-    type: Number,
-    default: 0,
-    min: 0,
-  },
-  hotelRequired: {
-    type: Boolean,
-    default: true,
-  },
-  transportRequired: {
-    type: Boolean,
-    default: true,
   },
   createdAt: {
     type: String,
+    default: () => new Date().toISOString(),
   },
   updatedAt: {
     type: String,
+    default: () => new Date().toISOString(),
   },
 });
+
+// ✅ Add index for better performance
+tourPackageSchema.index({ status: 1, category: 1 });
+tourPackageSchema.index({ "location.city": 1 });
 
 const TourPackage = mongoose.model("TourPackage", tourPackageSchema);
 

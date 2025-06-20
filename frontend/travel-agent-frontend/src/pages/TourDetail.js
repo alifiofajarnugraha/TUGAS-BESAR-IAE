@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@apollo/client";
 import {
@@ -24,6 +24,11 @@ import {
   AccordionDetails,
   Tab,
   Tabs,
+  Paper,
+  TextField,
+  Badge,
+  Tooltip,
+  IconButton,
 } from "@mui/material";
 import {
   LocationOn,
@@ -39,12 +44,18 @@ import {
   Share,
   Favorite,
   BookOnline,
+  CalendarToday,
+  EventAvailable,
+  Inventory as InventoryIcon,
+  DirectionsBus,
+  Refresh,
+  DateRange,
 } from "@mui/icons-material";
 import { motion } from "framer-motion";
-import { tourService } from "../services/api";
+import { tourService, inventoryService, QUERIES } from "../services/api";
 import { gql } from "@apollo/client";
 
-// Detailed query for single tour
+// Enhanced query for tour detail
 const GET_TOUR_DETAIL = gql`
   query GetTourDetail($id: ID!) {
     getTourPackage(id: $id) {
@@ -67,7 +78,6 @@ const GET_TOUR_DETAIL = gql`
         amount
         currency
       }
-      maxParticipants
       inclusions
       exclusions
       itinerary {
@@ -78,18 +88,46 @@ const GET_TOUR_DETAIL = gql`
       }
       images
       status
-      defaultSlots
-      hotelRequired
-      transportRequired
-      inventoryStatus {
-        date
-        slotsLeft
-        hotelAvailable
-        transportAvailable
-      }
-      isAvailable
       createdAt
       updatedAt
+    }
+  }
+`;
+
+// ✅ NEW: Get inventory for tour with date range
+const GET_TOUR_INVENTORY = gql`
+  query GetTourInventory($tourId: ID!, $startDate: String!, $endDate: String!) {
+    getTourAvailabilityRange(
+      tourId: $tourId
+      startDate: $startDate
+      endDate: $endDate
+    ) {
+      tourId
+      date
+      slotsLeft
+      hotelAvailable
+      transportAvailable
+    }
+  }
+`;
+
+// ✅ NEW: Check availability for specific date
+const CHECK_TOUR_AVAILABILITY = gql`
+  query CheckTourAvailability(
+    $tourId: ID!
+    $date: String!
+    $participants: Int!
+  ) {
+    checkAvailability(
+      tourId: $tourId
+      date: $date
+      participants: $participants
+    ) {
+      available
+      message
+      slotsLeft
+      hotelAvailable
+      transportAvailable
     }
   }
 `;
@@ -114,9 +152,27 @@ function TourDetail() {
   const navigate = useNavigate();
   const [selectedTab, setSelectedTab] = useState(0);
   const [selectedImage, setSelectedImage] = useState(0);
+  const [selectedDate, setSelectedDate] = useState("");
+  const [participants, setParticipants] = useState(2);
+
+  // Date range for inventory (next 6 months)
+  const dateRange = useMemo(() => {
+    const today = new Date();
+    const endDate = new Date();
+    endDate.setMonth(today.getMonth() + 6);
+
+    return {
+      startDate: today.toISOString().split("T")[0],
+      endDate: endDate.toISOString().split("T")[0],
+    };
+  }, []);
 
   // Fetch tour detail
-  const { loading, error, data } = useQuery(GET_TOUR_DETAIL, {
+  const {
+    loading: tourLoading,
+    error: tourError,
+    data: tourData,
+  } = useQuery(GET_TOUR_DETAIL, {
     variables: { id },
     client: tourService,
     errorPolicy: "all",
@@ -125,7 +181,67 @@ function TourDetail() {
     },
   });
 
-  const tour = data?.getTourPackage;
+  // Fetch inventory data
+  const {
+    loading: inventoryLoading,
+    error: inventoryError,
+    data: inventoryData,
+    refetch: refetchInventory,
+  } = useQuery(GET_TOUR_INVENTORY, {
+    variables: {
+      tourId: id,
+      ...dateRange,
+    },
+    client: inventoryService,
+    fetchPolicy: "cache-and-network",
+    errorPolicy: "all",
+    skip: !id,
+    onError: (error) => {
+      console.error("Inventory query error:", error);
+    },
+  });
+
+  // Check specific date availability
+  const {
+    data: availabilityData,
+    loading: availabilityLoading,
+    refetch: checkAvailability,
+  } = useQuery(CHECK_TOUR_AVAILABILITY, {
+    variables: {
+      tourId: id,
+      date: selectedDate,
+      participants,
+    },
+    client: inventoryService,
+    skip: !selectedDate || !id,
+    fetchPolicy: "no-cache",
+  });
+
+  const tour = tourData?.getTourPackage;
+  const inventory = inventoryData?.getTourAvailabilityRange || [];
+
+  // Process inventory data
+  const inventorySummary = useMemo(() => {
+    if (!inventory.length)
+      return {
+        totalDays: 0,
+        totalSlots: 0,
+        availableDates: [],
+        nearestDate: null,
+        isAvailable: false,
+      };
+
+    const availableDates = inventory.filter((inv) => inv.slotsLeft > 0);
+    const totalSlots = inventory.reduce((sum, inv) => sum + inv.slotsLeft, 0);
+
+    return {
+      totalDays: inventory.length,
+      totalSlots,
+      availableDates,
+      nearestDate: availableDates[0]?.date || null,
+      isAvailable: availableDates.length > 0,
+    };
+  }, [inventory]);
 
   // Format currency
   const formatPrice = (amount, currency) => {
@@ -136,10 +252,42 @@ function TourDetail() {
     }).format(amount);
   };
 
+  // Format date
+  const formatDate = (dateString) => {
+    if (!dateString) return "Not available";
+    return new Date(dateString).toLocaleDateString("id-ID", {
+      weekday: "short",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
   // Handle tab change
   const handleTabChange = (event, newValue) => {
     setSelectedTab(newValue);
   };
+
+  // Handle date selection
+  const handleDateChange = (event) => {
+    setSelectedDate(event.target.value);
+  };
+
+  // Handle booking
+  const handleBooking = () => {
+    if (!selectedDate) {
+      alert("Please select a departure date");
+      return;
+    }
+
+    // ✅ FIXED: Change dari 'booking' ke 'book' untuk match dengan route
+    navigate(
+      `/book/${tour.id}?date=${selectedDate}&participants=${participants}`
+    );
+  };
+
+  const loading = tourLoading || inventoryLoading;
+  const error = tourError || inventoryError;
 
   if (loading) {
     return (
@@ -248,13 +396,15 @@ function TourDetail() {
                   sx={{ fontWeight: 600 }}
                 />
                 <Chip
-                  label={tour.isAvailable ? "Available" : "Sold Out"}
-                  color={tour.isAvailable ? "success" : "error"}
+                  label={
+                    inventorySummary.isAvailable ? "Available" : "Sold Out"
+                  }
+                  color={inventorySummary.isAvailable ? "success" : "error"}
                   sx={{ fontWeight: 600 }}
                 />
               </Box>
 
-              {/* Action Buttons */}
+              {/* ✅ NEW: Inventory Info Badge */}
               <Box
                 sx={{
                   position: "absolute",
@@ -264,32 +414,23 @@ function TourDetail() {
                   gap: 1,
                 }}
               >
-                <Button
-                  variant="contained"
-                  sx={{
-                    minWidth: "auto",
-                    bgcolor: "rgba(255, 255, 255, 0.9)",
-                    color: "text.primary",
-                    "&:hover": {
-                      bgcolor: "rgba(255, 255, 255, 1)",
-                    },
-                  }}
+                <Tooltip
+                  title={`${inventorySummary.totalSlots} total slots available`}
                 >
-                  <Share />
-                </Button>
-                <Button
-                  variant="contained"
-                  sx={{
-                    minWidth: "auto",
-                    bgcolor: "rgba(255, 255, 255, 0.9)",
-                    color: "text.primary",
-                    "&:hover": {
-                      bgcolor: "rgba(255, 255, 255, 1)",
-                    },
-                  }}
-                >
-                  <Favorite />
-                </Button>
+                  <Badge
+                    badgeContent={inventorySummary.totalSlots}
+                    color="success"
+                  >
+                    <Chip
+                      icon={<InventoryIcon />}
+                      label={`${inventorySummary.totalDays} days`}
+                      sx={{
+                        bgcolor: "rgba(255, 255, 255, 0.9)",
+                        fontWeight: 600,
+                      }}
+                    />
+                  </Badge>
+                </Tooltip>
               </Box>
             </Box>
           </Card>
@@ -306,7 +447,14 @@ function TourDetail() {
                 <Tab label="Overview" />
                 <Tab label="Itinerary" />
                 <Tab label="Includes & Excludes" />
-                <Tab label="Reviews" />
+                <Tab
+                  label={
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <CalendarToday sx={{ fontSize: 16 }} />
+                      Availability
+                    </Box>
+                  }
+                />
               </Tabs>
             </Box>
 
@@ -353,9 +501,7 @@ function TourDetail() {
                       <Typography variant="subtitle2" color="text.secondary">
                         Group Size
                       </Typography>
-                      <Typography variant="body1">
-                        Max {tour.maxParticipants} participants
-                      </Typography>
+                      <Typography variant="body1">Small group tour</Typography>
                     </Box>
                   </Box>
                 </Grid>
@@ -480,17 +626,151 @@ function TourDetail() {
               </Grid>
             </CustomTabPanel>
 
-            {/* Reviews Tab */}
+            {/* ✅ NEW: Availability Tab */}
             <CustomTabPanel value={selectedTab} index={3}>
-              <Box sx={{ textAlign: "center", py: 4 }}>
-                <Typography variant="h6" color="text.secondary" gutterBottom>
-                  Reviews Coming Soon
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Customer reviews will be available once this feature is
-                  implemented.
-                </Typography>
+              <Box
+                sx={{
+                  mb: 3,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <Typography variant="h6">Available Dates</Typography>
+                <IconButton
+                  onClick={refetchInventory}
+                  disabled={inventoryLoading}
+                >
+                  <Refresh />
+                </IconButton>
               </Box>
+
+              {inventoryLoading ? (
+                <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+                  <CircularProgress />
+                </Box>
+              ) : inventorySummary.availableDates.length > 0 ? (
+                <Grid container spacing={2}>
+                  {inventorySummary.availableDates
+                    .slice(0, 20)
+                    .map((inv, index) => {
+                      const date = new Date(inv.date);
+                      const isSelected = selectedDate === inv.date;
+
+                      return (
+                        <Grid item xs={6} sm={4} md={3} key={index}>
+                          <Card
+                            sx={{
+                              cursor: "pointer",
+                              border: isSelected ? "2px solid" : "1px solid",
+                              borderColor: isSelected
+                                ? "primary.main"
+                                : "divider",
+                              "&:hover": {
+                                borderColor: "primary.main",
+                                bgcolor: "action.hover",
+                              },
+                            }}
+                            onClick={() => setSelectedDate(inv.date)}
+                          >
+                            <CardContent sx={{ p: 2, textAlign: "center" }}>
+                              <Typography variant="subtitle2" color="primary">
+                                {date.toLocaleDateString("id-ID", {
+                                  month: "short",
+                                  day: "numeric",
+                                })}
+                              </Typography>
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                display="block"
+                              >
+                                {date.toLocaleDateString("id-ID", {
+                                  weekday: "short",
+                                })}
+                              </Typography>
+
+                              <Box sx={{ mt: 1 }}>
+                                <Chip
+                                  label={`${inv.slotsLeft} slots`}
+                                  size="small"
+                                  color={
+                                    inv.slotsLeft > 5 ? "success" : "warning"
+                                  }
+                                />
+                              </Box>
+
+                              <Box
+                                sx={{
+                                  mt: 1,
+                                  display: "flex",
+                                  justifyContent: "center",
+                                  gap: 1,
+                                }}
+                              >
+                                {inv.hotelAvailable && (
+                                  <Tooltip title="Hotel Available">
+                                    <Hotel
+                                      sx={{
+                                        fontSize: 16,
+                                        color: "success.main",
+                                      }}
+                                    />
+                                  </Tooltip>
+                                )}
+                                {inv.transportAvailable && (
+                                  <Tooltip title="Transport Available">
+                                    <DirectionsBus
+                                      sx={{
+                                        fontSize: 16,
+                                        color: "success.main",
+                                      }}
+                                    />
+                                  </Tooltip>
+                                )}
+                              </Box>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                      );
+                    })}
+                </Grid>
+              ) : (
+                <Paper sx={{ p: 4, textAlign: "center" }}>
+                  <CalendarToday
+                    sx={{ fontSize: 48, color: "text.secondary", mb: 2 }}
+                  />
+                  <Typography variant="h6" color="text.secondary" gutterBottom>
+                    No Available Dates
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    This tour is currently sold out for the next 6 months.
+                  </Typography>
+                </Paper>
+              )}
+
+              {/* Selected Date Info */}
+              {selectedDate && availabilityData?.checkAvailability && (
+                <Paper
+                  sx={{
+                    mt: 3,
+                    p: 3,
+                    bgcolor: "primary.light",
+                    color: "primary.contrastText",
+                  }}
+                >
+                  <Typography variant="h6" gutterBottom>
+                    Selected Date: {formatDate(selectedDate)}
+                  </Typography>
+                  <Typography variant="body1">
+                    {availabilityData.checkAvailability.message}
+                  </Typography>
+                  <Typography variant="body2">
+                    Available slots:{" "}
+                    {availabilityData.checkAvailability.slotsLeft}
+                  </Typography>
+                </Paper>
+              )}
             </CustomTabPanel>
           </Card>
         </Grid>
@@ -547,74 +827,81 @@ function TourDetail() {
 
               <Divider sx={{ mb: 3 }} />
 
-              {/* Key Features */}
+              {/* ✅ NEW: Booking Form */}
               <Box sx={{ mb: 3 }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
-                  Tour Highlights
+                  Select Date & Participants
                 </Typography>
-                <List dense>
-                  <ListItem sx={{ px: 0 }}>
-                    <ListItemIcon sx={{ minWidth: 32 }}>
-                      <Schedule sx={{ fontSize: 16 }} />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={`${tour.duration.days} days journey`}
-                      primaryTypographyProps={{ variant: "body2" }}
+
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Departure Date"
+                      type="date"
+                      value={selectedDate}
+                      onChange={handleDateChange}
+                      InputLabelProps={{ shrink: true }}
+                      inputProps={{
+                        min: dateRange.startDate,
+                        max: dateRange.endDate,
+                      }}
                     />
-                  </ListItem>
-                  <ListItem sx={{ px: 0 }}>
-                    <ListItemIcon sx={{ minWidth: 32 }}>
-                      <People sx={{ fontSize: 16 }} />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={`Small group (max ${tour.maxParticipants})`}
-                      primaryTypographyProps={{ variant: "body2" }}
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Participants"
+                      type="number"
+                      value={participants}
+                      onChange={(e) =>
+                        setParticipants(
+                          Math.max(1, parseInt(e.target.value) || 1)
+                        )
+                      }
+                      inputProps={{ min: 1, max: 20 }}
                     />
-                  </ListItem>
-                  {tour.hotelRequired && (
-                    <ListItem sx={{ px: 0 }}>
-                      <ListItemIcon sx={{ minWidth: 32 }}>
-                        <Hotel sx={{ fontSize: 16 }} />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary="Accommodation included"
-                        primaryTypographyProps={{ variant: "body2" }}
-                      />
-                    </ListItem>
-                  )}
-                  {tour.transportRequired && (
-                    <ListItem sx={{ px: 0 }}>
-                      <ListItemIcon sx={{ minWidth: 32 }}>
-                        <FlightTakeoff sx={{ fontSize: 16 }} />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary="Transportation included"
-                        primaryTypographyProps={{ variant: "body2" }}
-                      />
-                    </ListItem>
-                  )}
-                </List>
+                  </Grid>
+                </Grid>
               </Box>
 
               <Divider sx={{ mb: 3 }} />
 
-              {/* Availability Status */}
+              {/* ✅ NEW: Availability Summary */}
               <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
-                  Availability
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
+                  Availability Summary
                 </Typography>
-                {tour.isAvailable ? (
-                  <Chip
-                    label="Available Now"
-                    color="success"
-                    sx={{ fontWeight: 600 }}
-                  />
-                ) : (
-                  <Chip
-                    label="Currently Sold Out"
-                    color="error"
-                    sx={{ fontWeight: 600 }}
-                  />
+
+                <Grid container spacing={2}>
+                  <Grid item xs={6}>
+                    <Paper sx={{ p: 2, textAlign: "center" }}>
+                      <Typography variant="h4" color="primary">
+                        {inventorySummary.totalDays}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Available Days
+                      </Typography>
+                    </Paper>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Paper sx={{ p: 2, textAlign: "center" }}>
+                      <Typography variant="h4" color="success.main">
+                        {inventorySummary.totalSlots}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Total Slots
+                      </Typography>
+                    </Paper>
+                  </Grid>
+                </Grid>
+
+                {inventorySummary.nearestDate && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Next available: {formatDate(inventorySummary.nearestDate)}
+                    </Typography>
+                  </Box>
                 )}
               </Box>
 
@@ -624,8 +911,8 @@ function TourDetail() {
                   variant="contained"
                   size="large"
                   startIcon={<BookOnline />}
-                  onClick={() => navigate(`/booking/${tour.id}`)}
-                  disabled={!tour.isAvailable}
+                  onClick={handleBooking}
+                  disabled={!inventorySummary.isAvailable || !selectedDate}
                   sx={{
                     py: 1.5,
                     fontWeight: 600,
@@ -633,7 +920,11 @@ function TourDetail() {
                     borderRadius: 2,
                   }}
                 >
-                  Book Now
+                  {!inventorySummary.isAvailable
+                    ? "Sold Out"
+                    : !selectedDate
+                    ? "Select Date to Book"
+                    : "Book Now"}
                 </Button>
 
                 <Button

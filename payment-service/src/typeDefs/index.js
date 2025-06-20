@@ -1,6 +1,4 @@
-const { gql } = require("apollo-server-express");
-
-const typeDefs = gql`
+const typeDefs = `
   type Payment {
     id: ID!
     amount: Float!
@@ -14,7 +12,7 @@ const typeDefs = gql`
     userId: String
   }
 
-  type PaymentStatus {
+  type PaymentUpdateResponse {
     id: ID!
     paymentId: ID!
     status: String!
@@ -22,7 +20,22 @@ const typeDefs = gql`
     payment: Payment!
   }
 
-  # Response untuk service external
+  type Invoice {
+    invoiceNumber: String!
+    dateIssued: String!
+    dueDate: String!
+    amount: Float!
+    status: String!
+    paymentId: String!
+    customerInfo: CustomerInfo
+  }
+
+  type CustomerInfo {
+    userId: String!
+    bookingId: String
+    travelScheduleId: String
+  }
+
   type TravelSchedulePaymentStatus {
     travelScheduleId: String!
     isPaid: Boolean!
@@ -41,21 +54,21 @@ const typeDefs = gql`
   }
 
   type Query {
+    getPayment(id: ID!): Payment
     getPaymentStatus(paymentId: ID!): Payment
-    listPayments: [Payment]
-    # Endpoint untuk service external
-    getTravelSchedulePaymentStatus(
-      travelScheduleId: String!
-    ): TravelSchedulePaymentStatus
-    getPaymentsByTravelSchedule(travelScheduleId: String!): [Payment]
-    # Endpoint untuk booking service
-    getPaymentsByBooking(bookingId: String!): [Payment]
+    listPayments: [Payment!]!
+    getTravelSchedulePaymentStatus(travelScheduleId: String!): TravelSchedulePaymentStatus
+    getPaymentsByTravelSchedule(travelScheduleId: String!): [Payment!]!
+    getPaymentsByBooking(bookingId: String!): [Payment!]!
+    getInvoice(invoiceNumber: String!): Invoice
+    getInvoiceByPayment(paymentId: ID!): Invoice
   }
 
   type Mutation {
-    processPayment(input: PaymentInput!): Payment
-    updatePaymentStatus(paymentId: ID!, status: String!): PaymentStatus
-    generateInvoice(paymentId: ID!): String
+    processPayment(input: PaymentInput!): Payment!
+    updatePaymentStatus(paymentId: ID!, status: String!): PaymentUpdateResponse!
+    generateInvoice(paymentId: ID!): Invoice!
+    processRefund(paymentId: ID!, amount: Float): Payment!
   }
 `;
 

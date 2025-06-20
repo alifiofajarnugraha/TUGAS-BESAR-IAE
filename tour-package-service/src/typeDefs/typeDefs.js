@@ -29,12 +29,11 @@ const typeDefs = gql`
     currency: String!
   }
 
-  # Removed AvailableDate type - handled by inventory-service
-
+  # ✅ Inventory types from inventory-service
   type InventoryStatus {
     tourId: String!
     date: String!
-    slotsLeft: Int!
+    slotsAvailable: Int!
     hotelAvailable: Boolean!
     transportAvailable: Boolean!
   }
@@ -67,22 +66,19 @@ const typeDefs = gql`
     location: Location!
     duration: Duration!
     price: Price!
-    maxParticipants: Int!
+    # ❌ REMOVED: maxParticipants, defaultSlots, hotelRequired, transportRequired
     inclusions: [String]
     exclusions: [String]
     itinerary: [ItineraryDay]
     images: [String]
     status: String!
-    defaultSlots: Int
-    hotelRequired: Boolean
-    transportRequired: Boolean
-    # Removed availableDates - handled by inventory-service
     createdAt: String
     updatedAt: String
-    # Fields untuk inventory integration
+    # ✅ Inventory integration fields
     inventoryStatus: [InventoryStatus]
     isAvailable: Boolean
-    # Field untuk travel integration
+    availableDates: [String]
+    # ✅ Travel integration fields
     travelOptions: [TravelSchedule]
   }
 
@@ -110,8 +106,6 @@ const typeDefs = gql`
     currency: String!
   }
 
-  # Removed AvailableDateInput - handled by inventory-service
-
   input ItineraryDayInput {
     day: Int!
     title: String!
@@ -127,58 +121,101 @@ const typeDefs = gql`
     location: LocationInput!
     duration: DurationInput!
     price: PriceInput!
-    maxParticipants: Int!
+    # ❌ REMOVED: maxParticipants, defaultSlots, hotelRequired, transportRequired
     inclusions: [String]
     exclusions: [String]
     itinerary: [ItineraryDayInput]
     images: [String]
     status: String
-    defaultSlots: Int
-    hotelRequired: Boolean
-    transportRequired: Boolean
-    # Removed availableDates - handled by inventory-service
+  }
+
+  # ✅ Inventory management inputs
+  input InventoryInput {
+    tourId: ID!
+    date: String!
+    slots: Int!
+    hotelAvailable: Boolean!
+    transportAvailable: Boolean!
+  }
+
+  type InventoryResult {
+    success: Boolean!
+    message: String!
+  }
+
+  # ✅ NEW: Range-based inventory management (proxy to inventory-service)
+  input InventoryRangeInput {
+    tourId: ID!
+    startDate: String!
+    endDate: String!
+    slots: Int!
+    hotelAvailable: Boolean!
+    transportAvailable: Boolean!
+    skipDays: [Int!]
+    skipDates: [String!]
+  }
+
+  type RangeInitializationResult {
+    success: Boolean!
+    message: String!
+    totalDays: Int!
+    createdRecords: Int!
+    skippedRecords: Int!
+    errorRecords: Int!
+    dateRange: String!
+    details: [String!]!
   }
 
   type Query {
+    # ✅ Basic tour queries
     getTourPackages: [TourPackage!]!
     getTourPackage(id: ID!): TourPackage
     getTourPackagesByCategory(category: String!): [TourPackage!]!
     searchTourPackages(keyword: String!): [TourPackage!]!
-    # Inventory-related queries
+
+    # ✅ Inventory-integrated queries
+    getTourWithInventory(id: ID!): TourPackage
+    getAvailableTours(date: String!, participants: Int!): [TourPackage!]!
     checkTourAvailability(
       tourId: ID!
-      date: Date!
+      date: String!
       participants: Int!
     ): AvailabilityCheck!
     getTourInventoryStatus(tourId: ID!): [InventoryStatus!]!
-    getAvailableTours(date: String!, participants: Int!): [TourPackage!]!
-    # Travel-related queries
-    getTravelSchedulesForTour(tourId: ID!): [TravelSchedule!]!
+
+    # ✅ Travel-integrated queries
+    getTourWithTravel(id: ID!, origin: String): TourPackage
     getAvailableTravelOptions(
       origin: String!
       destination: String!
     ): [TravelSchedule!]!
-    getTourPackageWithTravel(id: ID!, origin: String): TourPackage
   }
 
   type Mutation {
+    # ✅ Basic tour mutations
     createTourPackage(input: TourPackageInput!): TourPackage!
     updateTourPackage(id: ID!, input: TourPackageInput!): TourPackage!
     deleteTourPackage(id: ID!): TourPackage
     updateTourStatus(id: ID!, status: String!): TourPackage!
-    # Inventory-related mutations - these will call inventory-service
+
+    # ✅ Inventory management mutations (proxy to inventory-service)
+    createTourInventory(input: InventoryInput!): InventoryResult!
+    updateTourInventory(input: InventoryInput!): InventoryResult!
+    deleteTourInventory(tourId: ID!, date: String): InventoryResult!
     initializeTourInventory(
       tourId: ID!
       dates: [String!]!
       defaultSlots: Int!
-    ): Boolean!
-    updateTourInventory(
-      tourId: ID!
-      date: Date!
-      slots: Int!
-      hotelAvailable: Boolean
-      transportAvailable: Boolean
-    ): Boolean!
+    ): InventoryResult!
+
+    # ✅ NEW: Range-based inventory management (proxy to inventory-service)
+    initializeTourInventoryRange(
+      input: InventoryRangeInput!
+    ): RangeInitializationResult!
+
+    updateTourInventoryRange(
+      input: InventoryRangeInput!
+    ): RangeInitializationResult!
   }
 `;
 

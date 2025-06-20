@@ -1,11 +1,15 @@
 {
   "name": "payment-service",
   "version": "1.0.0",
-  "main": "src/index.js",
+  "description": "Payment service for travel agent system",
+  "main": "src/server.js",
   "license": "MIT",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
+  },
   "dependencies": {
     "@apollo/server": "^4.12.1",
-    "apollo-server-express": "^3.12.0",
     "axios": "^1.10.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

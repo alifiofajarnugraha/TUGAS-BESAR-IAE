@@ -74,7 +74,6 @@ const GET_ADMIN_TOURS = gql`
         amount
         currency
       }
-      maxParticipants
       status
       images
       createdAt
@@ -616,10 +615,11 @@ function AdminTourPackages() {
                           </Typography>
                         </Box>
 
+                        {/* ✅ NEW: Inventory Status Quick View */}
                         <Box
                           sx={{ display: "flex", alignItems: "center", mb: 2 }}
                         >
-                          <People
+                          <InventoryIcon
                             sx={{
                               fontSize: 16,
                               color: "text.secondary",
@@ -627,7 +627,7 @@ function AdminTourPackages() {
                             }}
                           />
                           <Typography variant="body2" color="text.secondary">
-                            Max {tour.maxParticipants} participants
+                            Inventory: Active slots managed
                           </Typography>
                         </Box>
 
@@ -682,11 +682,19 @@ function AdminTourPackages() {
                                 <EditIcon />
                               </IconButton>
                             </Tooltip>
-                            <Tooltip title="Manage Inventory">
+                            <Tooltip title="Manage Inventory & Slots">
                               <IconButton
                                 size="small"
                                 color="secondary"
                                 onClick={() => setSelectedTour(tour)}
+                                sx={{
+                                  bgcolor: "secondary.light",
+                                  color: "secondary.dark",
+                                  "&:hover": {
+                                    bgcolor: "secondary.main",
+                                    color: "white",
+                                  },
+                                }}
                               >
                                 <InventoryIcon />
                               </IconButton>

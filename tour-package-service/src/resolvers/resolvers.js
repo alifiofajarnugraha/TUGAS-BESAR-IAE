@@ -3,65 +3,60 @@ const mongoose = require("mongoose");
 const axios = require("axios");
 const { GraphQLScalarType, Kind } = require("graphql");
 
-// Service URLs
-const INVENTORY_SERVICE_URL = "http://localhost:3005/graphql";
-const TRAVEL_SCHEDULE_SERVICE_URL = "http://localhost:3006/graphql";
+// ✅ Service URLs
+const INVENTORY_SERVICE_URL =
+  process.env.INVENTORY_SERVICE_URL || "http://inventory-service:3005/graphql";
+const TRAVEL_SCHEDULE_SERVICE_URL =
+  process.env.TRAVEL_SCHEDULE_SERVICE_URL ||
+  "http://travel-schedule-service:3006/graphql";
 
-// Helper function to call inventory service dengan better error handling
+// ✅ Enhanced inventory service helper
 const callInventoryService = async (query, variables = {}) => {
   try {
+    console.log(`📞 Calling inventory service: ${INVENTORY_SERVICE_URL}`);
     const response = await axios.post(
       INVENTORY_SERVICE_URL,
+      { query, variables },
       {
-        query,
-        variables,
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        timeout: 5000, // 5 second timeout
-      }
-    );
-
-    if (response.data.errors) {
-      console.error("Inventory service errors:", response.data.errors);
-      return null; // Return null instead of throwing
-    }
-
-    return response.data.data;
-  } catch (error) {
-    console.warn("Inventory service unavailable:", error.message);
-    // Return null instead of throwing - allow graceful fallback
-    return null;
-  }
-};
-
-// Helper function to call travel schedule service
-const callTravelScheduleService = async (query, variables = {}) => {
-  try {
-    const response = await axios.post(
-      TRAVEL_SCHEDULE_SERVICE_URL,
-      {
-        query,
-        variables,
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         timeout: 5000,
       }
     );
 
     if (response.data.errors) {
-      console.error("Travel schedule service errors:", response.data.errors);
+      console.error("❌ Inventory service errors:", response.data.errors);
+      return null;
+    }
+
+    console.log("✅ Inventory service response received");
+    return response.data.data;
+  } catch (error) {
+    console.warn("⚠️ Inventory service unavailable:", error.message);
+    return null;
+  }
+};
+
+// ✅ Travel service helper
+const callTravelScheduleService = async (query, variables = {}) => {
+  try {
+    console.log(`📞 Calling travel service: ${TRAVEL_SCHEDULE_SERVICE_URL}`);
+    const response = await axios.post(
+      TRAVEL_SCHEDULE_SERVICE_URL,
+      { query, variables },
+      {
+        headers: { "Content-Type": "application/json" },
+        timeout: 5000,
+      }
+    );
+
+    if (response.data.errors) {
+      console.error("❌ Travel service errors:", response.data.errors);
       return null;
     }
 
     return response.data.data;
   } catch (error) {
-    console.warn("Travel schedule service unavailable:", error.message);
+    console.warn("⚠️ Travel service unavailable:", error.message);
     return null;
   }
 };
@@ -71,18 +66,15 @@ const resolvers = {
     name: "Date",
     description: "Date custom scalar type",
     parseValue(value) {
-      // Value from the client
       return new Date(value);
     },
     serialize(value) {
-      // Value sent to the client
       if (value instanceof Date) {
-        return value.toISOString().split("T")[0]; // Returns YYYY-MM-DD format
+        return value.toISOString().split("T")[0];
       }
       return new Date(value).toISOString().split("T")[0];
     },
     parseLiteral(ast) {
-      // Value from the client query
       if (ast.kind === Kind.STRING) {
         return new Date(ast.value);
       }
@@ -91,26 +83,22 @@ const resolvers = {
   }),
 
   Query: {
+    // ✅ Basic tour queries
     getTourPackages: async () => {
-      console.log("📦 getTourPackages resolver called");
+      console.log("📦 Getting all tour packages");
       try {
-        const tours = await TourPackage.find({}).sort({ createdAt: -1 });
+        const tours = await TourPackage.find({ status: { $ne: "draft" } }).sort(
+          { createdAt: -1 }
+        );
         console.log(`📦 Found ${tours.length} tours`);
 
-        tours.forEach((t) => {
-          if (!t._id) console.warn("Tour tanpa _id:", t);
-        });
-
-        const result = tours.map((tour) => ({
-          id: tour._id ? tour._id.toString() : null,
+        return tours.map((tour) => ({
+          id: tour._id.toString(),
           ...tour.toObject(),
         }));
-
-        console.log("📦 Returning tours:", result.length);
-        return result;
       } catch (error) {
         console.error("❌ Error in getTourPackages:", error);
-        throw new Error(`Error fetching tour packages: ${error}`);
+        throw new Error(`Error fetching tour packages: ${error.message}`);
       }
     },
 
@@ -125,10 +113,31 @@ const resolvers = {
           throw new Error(`Tour package with ID ${id} not found`);
         }
 
-        // Get inventory status
+        return {
+          id: tourPackage._id.toString(),
+          ...tourPackage.toObject(),
+        };
+      } catch (error) {
+        throw new Error(`Error fetching tour package: ${error.message}`);
+      }
+    },
+
+    // ✅ NEW: Get tour with inventory data
+    getTourWithInventory: async (_, { id }) => {
+      try {
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+          throw new Error("Invalid tour package ID");
+        }
+
+        const tourPackage = await TourPackage.findById(id);
+        if (!tourPackage) {
+          throw new Error(`Tour package with ID ${id} not found`);
+        }
+
+        // Get inventory status from inventory service
         const inventoryData = await callInventoryService(
           `
-          query GetInventoryStatus($tourId: String!) {
+          query GetInventoryStatus($tourId: ID!) {
             getInventoryStatus(tourId: $tourId) {
               tourId
               date
@@ -141,59 +150,98 @@ const resolvers = {
           { tourId: id }
         );
 
+        const inventoryStatus = inventoryData?.getInventoryStatus || [];
+        const availableDates = inventoryStatus
+          .filter((inv) => inv.slotsLeft > 0)
+          .map((inv) => inv.date);
+
         return {
           id: tourPackage._id.toString(),
           ...tourPackage.toObject(),
-          inventoryStatus: inventoryData?.getInventoryStatus || [],
-          isAvailable:
-            inventoryData?.getInventoryStatus?.some(
-              (inv) => inv.slotsLeft > 0
-            ) || false,
+          inventoryStatus: inventoryStatus.map((inv) => ({
+            tourId: inv.tourId,
+            date: inv.date,
+            slotsAvailable: inv.slotsLeft,
+            hotelAvailable: inv.hotelAvailable,
+            transportAvailable: inv.transportAvailable,
+          })),
+          isAvailable: availableDates.length > 0,
+          availableDates,
         };
       } catch (error) {
-        throw new Error(`Error fetching tour package: ${error}`);
+        throw new Error(`Error fetching tour with inventory: ${error.message}`);
       }
     },
 
-    getTourPackagesByCategory: async (_, { category }) => {
+    // ✅ Get tours with availability filter
+    getAvailableTours: async (_, { date, participants }) => {
       try {
-        const tours = await TourPackage.find({ category });
-        return tours.map((tour) => ({
-          id: tour._id.toString(),
-          ...tour.toObject(),
-        }));
+        console.log(
+          `🔍 Finding available tours for ${date} with ${participants} participants`
+        );
+
+        const allTours = await TourPackage.find({ status: "active" });
+        const availableTours = [];
+
+        for (const tour of allTours) {
+          const availabilityData = await callInventoryService(
+            `
+            query CheckAvailability($tourId: ID!, $date: String!, $participants: Int!) {
+              checkAvailability(tourId: $tourId, date: $date, participants: $participants) {
+                available
+              }
+            }
+          `,
+            { tourId: tour._id.toString(), date, participants }
+          );
+
+          if (availabilityData?.checkAvailability?.available) {
+            // Get inventory details for this tour
+            const inventoryData = await callInventoryService(
+              `
+              query GetInventoryStatus($tourId: ID!) {
+                getInventoryStatus(tourId: $tourId) {
+                  tourId
+                  date
+                  slotsLeft
+                  hotelAvailable
+                  transportAvailable
+                }
+              }
+            `,
+              { tourId: tour._id.toString() }
+            );
+
+            const inventoryStatus = inventoryData?.getInventoryStatus || [];
+
+            availableTours.push({
+              id: tour._id.toString(),
+              ...tour.toObject(),
+              inventoryStatus: inventoryStatus.map((inv) => ({
+                tourId: inv.tourId,
+                date: inv.date,
+                slotsAvailable: inv.slotsLeft,
+                hotelAvailable: inv.hotelAvailable,
+                transportAvailable: inv.transportAvailable,
+              })),
+              isAvailable: true,
+            });
+          }
+        }
+
+        console.log(`✅ Found ${availableTours.length} available tours`);
+        return availableTours;
       } catch (error) {
-        throw new Error(`Error fetching tour packages by category: ${error}`);
+        throw new Error(`Error getting available tours: ${error.message}`);
       }
     },
 
-    searchTourPackages: async (_, { keyword }) => {
-      try {
-        const regex = new RegExp(keyword, "i");
-        const tours = await TourPackage.find({
-          $or: [
-            { name: { $regex: regex } },
-            { shortDescription: { $regex: regex } },
-            { "location.city": { $regex: regex } },
-            { "location.country": { $regex: regex } },
-            { category: { $regex: regex } },
-          ],
-        });
-        return tours.map((tour) => ({
-          id: tour._id.toString(),
-          ...tour.toObject(),
-        }));
-      } catch (error) {
-        throw new Error(`Error searching tour packages: ${error}`);
-      }
-    },
-
-    // Inventory-related queries
+    // ✅ Proxy to inventory service
     checkTourAvailability: async (_, { tourId, date, participants }) => {
       try {
         const inventoryData = await callInventoryService(
           `
-          query CheckAvailability($tourId: String!, $date: String!, $participants: Int!) {
+          query CheckAvailability($tourId: ID!, $date: String!, $participants: Int!) {
             checkAvailability(tourId: $tourId, date: $date, participants: $participants) {
               available
               message
@@ -211,31 +259,7 @@ const resolvers = {
           };
         }
 
-        // Get additional inventory details
-        const statusData = await callInventoryService(
-          `
-          query GetInventoryStatus($tourId: String!) {
-            getInventoryStatus(tourId: $tourId) {
-              date
-              slotsLeft
-              hotelAvailable
-              transportAvailable
-            }
-          }
-        `,
-          { tourId }
-        );
-
-        const dateInventory = statusData?.getInventoryStatus?.find(
-          (inv) => inv.date === date
-        );
-
-        return {
-          ...inventoryData.checkAvailability,
-          slotsLeft: dateInventory?.slotsLeft || 0,
-          hotelAvailable: dateInventory?.hotelAvailable || false,
-          transportAvailable: dateInventory?.transportAvailable || false,
-        };
+        return inventoryData.checkAvailability;
       } catch (error) {
         return {
           available: false,
@@ -244,11 +268,12 @@ const resolvers = {
       }
     },
 
+    // ✅ Proxy to inventory service
     getTourInventoryStatus: async (_, { tourId }) => {
       try {
         const inventoryData = await callInventoryService(
           `
-          query GetInventoryStatus($tourId: String!) {
+          query GetInventoryStatus($tourId: ID!) {
             getInventoryStatus(tourId: $tourId) {
               tourId
               date
@@ -261,108 +286,62 @@ const resolvers = {
           { tourId }
         );
 
-        return inventoryData?.getInventoryStatus || [];
+        const inventoryStatus = inventoryData?.getInventoryStatus || [];
+        return inventoryStatus.map((inv) => ({
+          tourId: inv.tourId,
+          date: inv.date,
+          slotsAvailable: inv.slotsLeft,
+          hotelAvailable: inv.hotelAvailable,
+          transportAvailable: inv.transportAvailable,
+        }));
       } catch (error) {
         console.error("Error getting inventory status:", error);
         return [];
       }
     },
 
-    getAvailableTours: async (_, { date, participants }) => {
+    // ✅ Search and filter
+    getTourPackagesByCategory: async (_, { category }) => {
       try {
-        const allTours = await TourPackage.find({ status: "active" });
-        const availableTours = [];
-
-        for (const tour of allTours) {
-          const availabilityData = await callInventoryService(
-            `
-            query CheckAvailability($tourId: String!, $date: String!, $participants: Int!) {
-              checkAvailability(tourId: $tourId, date: $date, participants: $participants) {
-                available
-              }
-            }
-          `,
-            { tourId: tour._id.toString(), date, participants }
-          );
-
-          if (availabilityData?.checkAvailability?.available) {
-            availableTours.push({
-              id: tour._id.toString(),
-              ...tour.toObject(),
-            });
-          }
-        }
-
-        return availableTours;
+        const tours = await TourPackage.find({
+          category,
+          status: { $ne: "draft" },
+        });
+        return tours.map((tour) => ({
+          id: tour._id.toString(),
+          ...tour.toObject(),
+        }));
       } catch (error) {
-        throw new Error(`Error getting available tours: ${error}`);
-      }
-    },
-
-    // Travel schedule integration queries
-    getTravelSchedulesForTour: async (_, { tourId }) => {
-      try {
-        const tour = await TourPackage.findById(tourId);
-        if (!tour) {
-          throw new Error(`Tour package with ID ${tourId} not found`);
-        }
-
-        const travelData = await callTravelScheduleService(
-          `
-          query GetTravelSchedulesByRoute($origin: String!, $destination: String!) {
-            getTravelSchedulesByRoute(origin: $origin, destination: $destination) {
-              id
-              origin
-              destination
-              departureTime
-              arrivalTime
-              price
-              seatsAvailable
-              vehicleType
-            }
-          }
-        `,
-          {
-            origin: "Jakarta",
-            destination: tour.location.city,
-          }
+        throw new Error(
+          `Error fetching tour packages by category: ${error.message}`
         );
-
-        return travelData?.getTravelSchedulesByRoute || [];
-      } catch (error) {
-        console.error("Error getting travel schedules for tour:", error);
-        return [];
       }
     },
 
-    getAvailableTravelOptions: async (_, { origin, destination }) => {
+    searchTourPackages: async (_, { keyword }) => {
       try {
-        const travelData = await callTravelScheduleService(
-          `
-          query GetTravelSchedulesByRoute($origin: String!, $destination: String!) {
-            getTravelSchedulesByRoute(origin: $origin, destination: $destination) {
-              id
-              origin
-              destination
-              departureTime
-              arrivalTime
-              price
-              seatsAvailable
-              vehicleType
-            }
-          }
-        `,
-          { origin, destination }
-        );
-
-        return travelData?.getTravelSchedulesByRoute || [];
+        const regex = new RegExp(keyword, "i");
+        const tours = await TourPackage.find({
+          status: { $ne: "draft" },
+          $or: [
+            { name: { $regex: regex } },
+            { shortDescription: { $regex: regex } },
+            { "location.city": { $regex: regex } },
+            { "location.country": { $regex: regex } },
+            { category: { $regex: regex } },
+          ],
+        });
+        return tours.map((tour) => ({
+          id: tour._id.toString(),
+          ...tour.toObject(),
+        }));
       } catch (error) {
-        console.error("Error getting available travel options:", error);
-        return [];
+        throw new Error(`Error searching tour packages: ${error.message}`);
       }
     },
 
-    getTourPackageWithTravel: async (_, { id, origin }) => {
+    // ✅ Travel integration
+    getTourWithTravel: async (_, { id, origin }) => {
       try {
         if (!mongoose.Types.ObjectId.isValid(id)) {
           throw new Error("Invalid tour package ID");
@@ -373,23 +352,7 @@ const resolvers = {
           throw new Error(`Tour package with ID ${id} not found`);
         }
 
-        // Get inventory status
-        const inventoryData = await callInventoryService(
-          `
-          query GetInventoryStatus($tourId: String!) {
-            getInventoryStatus(tourId: $tourId) {
-              tourId
-              date
-              slotsLeft
-              hotelAvailable
-              transportAvailable
-            }
-          }
-        `,
-          { tourId: id }
-        );
-
-        // Get travel options if origin is provided
+        // Get travel options if origin provided
         let travelOptions = [];
         if (origin) {
           const travelData = await callTravelScheduleService(
@@ -415,20 +378,43 @@ const resolvers = {
         return {
           id: tourPackage._id.toString(),
           ...tourPackage.toObject(),
-          inventoryStatus: inventoryData?.getInventoryStatus || [],
-          isAvailable:
-            inventoryData?.getInventoryStatus?.some(
-              (inv) => inv.slotsLeft > 0
-            ) || false,
           travelOptions,
         };
       } catch (error) {
-        throw new Error(`Error fetching tour package with travel: ${error}`);
+        throw new Error(`Error fetching tour with travel: ${error.message}`);
+      }
+    },
+
+    getAvailableTravelOptions: async (_, { origin, destination }) => {
+      try {
+        const travelData = await callTravelScheduleService(
+          `
+          query GetTravelSchedulesByRoute($origin: String!, $destination: String!) {
+            getTravelSchedulesByRoute(origin: $origin, destination: $destination) {
+              id
+              origin
+              destination
+              departureTime
+              arrivalTime
+              price
+              seatsAvailable
+              vehicleType
+            }
+          }
+        `,
+          { origin, destination }
+        );
+
+        return travelData?.getTravelSchedulesByRoute || [];
+      } catch (error) {
+        console.error("Error getting travel options:", error);
+        return [];
       }
     },
   },
 
   Mutation: {
+    // ✅ Basic tour mutations
     createTourPackage: async (_, { input }) => {
       try {
         const newTourPackage = new TourPackage({
@@ -439,8 +425,6 @@ const resolvers = {
         });
 
         const savedTour = await newTourPackage.save();
-
-        // Tidak perlu initialize inventory di sini - akan dihandle oleh inventory-service
         console.log(`✅ Tour package created: ${savedTour.name}`);
 
         return {
@@ -448,7 +432,7 @@ const resolvers = {
           ...savedTour.toObject(),
         };
       } catch (error) {
-        throw new Error(`Error creating tour package: ${error}`);
+        throw new Error(`Error creating tour package: ${error.message}`);
       }
     },
 
@@ -473,7 +457,7 @@ const resolvers = {
           ...updatedTourPackage.toObject(),
         };
       } catch (error) {
-        throw new Error(`Error updating tour package: ${error}`);
+        throw new Error(`Error updating tour package: ${error.message}`);
       }
     },
 
@@ -483,10 +467,16 @@ const resolvers = {
           throw new Error("Invalid tour package ID");
         }
 
+        // Delete associated inventory first
         await callInventoryService(
-          `mutation DeleteTour($tourId: String!) {
-            deleteTour(tourId: $tourId) { success message }
-          }`,
+          `
+          mutation DeleteTour($tourId: ID!) {
+            deleteTour(tourId: $tourId) {
+              success
+              message
+            }
+          }
+        `,
           { tourId: id }
         );
 
@@ -495,12 +485,14 @@ const resolvers = {
           throw new Error(`Tour package with ID ${id} not found`);
         }
 
+        console.log(`✅ Tour package deleted: ${deletedTourPackage.name}`);
+
         return {
           id: deletedTourPackage._id.toString(),
           ...deletedTourPackage.toObject(),
         };
       } catch (error) {
-        throw new Error(`Error deleting tour package: ${error}`);
+        throw new Error(`Error deleting tour package: ${error.message}`);
       }
     },
 
@@ -510,7 +502,7 @@ const resolvers = {
           throw new Error("Invalid tour package ID");
         }
 
-        const validStatuses = ["active", "inactive", "soldout"];
+        const validStatuses = ["active", "inactive", "draft"];
         if (!validStatuses.includes(status)) {
           throw new Error(
             `Invalid status. Must be one of: ${validStatuses.join(", ")}`
@@ -532,65 +524,157 @@ const resolvers = {
           ...updatedTourPackage.toObject(),
         };
       } catch (error) {
-        throw new Error(`Error updating tour status: ${error}`);
+        throw new Error(`Error updating tour status: ${error.message}`);
       }
     },
 
-    // Inventory-related mutations
-    initializeTourInventory: async (_, { tourId, dates, defaultSlots }) => {
-      try {
-        // Call inventory service to initialize inventory
-        const result = await callInventoryService(
-          `
-          mutation InitializeTourInventory($tourId: String!, $dates: [String!]!, $defaultSlots: Int!) {
-            initializeTourInventory(tourId: $tourId, dates: $dates, defaultSlots: $defaultSlots) {
-              success
-              message
-            }
-          }
-        `,
-          { tourId, dates, defaultSlots }
-        );
-
-        return result?.initializeTourInventory?.success || false;
-      } catch (error) {
-        console.error("Error initializing inventory:", error);
-        return false;
-      }
-    },
-
-    updateTourInventory: async (
-      _,
-      { tourId, date, slots, hotelAvailable, transportAvailable }
-    ) => {
+    // ✅ Inventory management mutations (proxy to inventory service)
+    createTourInventory: async (_, { input }) => {
       try {
         const result = await callInventoryService(
           `
-          mutation UpdateInventory($input: InventoryInput!) {
+          mutation UpdateInventory($input: InventoryUpdateInput!) {
             updateInventory(input: $input) {
+              id
               tourId
               date
               slots
             }
           }
         `,
-          {
-            input: {
-              tourId,
-              date,
-              slots,
-              hotelAvailable:
-                hotelAvailable !== undefined ? hotelAvailable : true,
-              transportAvailable:
-                transportAvailable !== undefined ? transportAvailable : true,
-            },
-          }
+          { input }
         );
 
-        return !!result?.updateInventory;
+        return {
+          success: !!result?.updateInventory,
+          message: result?.updateInventory
+            ? `Inventory created for tour ${input.tourId} on ${input.date}`
+            : "Failed to create inventory",
+        };
       } catch (error) {
-        console.error("Error updating inventory:", error);
-        return false;
+        return {
+          success: false,
+          message: `Error creating inventory: ${error.message}`,
+        };
+      }
+    },
+
+    updateTourInventory: async (_, { input }) => {
+      try {
+        const result = await callInventoryService(
+          `
+          mutation UpdateInventory($input: InventoryUpdateInput!) {
+            updateInventory(input: $input) {
+              id
+              tourId
+              date
+              slots
+            }
+          }
+        `,
+          { input }
+        );
+
+        return {
+          success: !!result?.updateInventory,
+          message: result?.updateInventory
+            ? `Inventory updated for tour ${input.tourId} on ${input.date}`
+            : "Failed to update inventory",
+        };
+      } catch (error) {
+        return {
+          success: false,
+          message: `Error updating inventory: ${error.message}`,
+        };
+      }
+    },
+
+    deleteTourInventory: async (_, { tourId, date }) => {
+      try {
+        const result = await callInventoryService(
+          date
+            ? `
+          mutation DeleteSpecificInventory($tourId: ID!, $date: String!) {
+            deleteInventoryByDate(tourId: $tourId, date: $date) {
+              success
+              message
+            }
+          }
+        `
+            : `
+          mutation DeleteTour($tourId: ID!) {
+            deleteTour(tourId: $tourId) {
+              success
+              message
+            }
+          }
+        `,
+          date ? { tourId, date } : { tourId }
+        );
+
+        const deleteResult = date
+          ? result?.deleteInventoryByDate
+          : result?.deleteTour;
+
+        return {
+          success: deleteResult?.success || false,
+          message: deleteResult?.message || "Failed to delete inventory",
+        };
+      } catch (error) {
+        return {
+          success: false,
+          message: `Error deleting inventory: ${error.message}`,
+        };
+      }
+    },
+
+    initializeTourInventory: async (_, { tourId, dates, defaultSlots }) => {
+      try {
+        let successCount = 0;
+        const results = [];
+
+        for (const date of dates) {
+          const result = await callInventoryService(
+            `
+            mutation UpdateInventory($input: InventoryUpdateInput!) {
+              updateInventory(input: $input) {
+                id
+                tourId
+                date
+              }
+            }
+          `,
+            {
+              input: {
+                tourId,
+                date,
+                slots: defaultSlots,
+                hotelAvailable: true,
+                transportAvailable: true,
+              },
+            }
+          );
+
+          if (result?.updateInventory) {
+            successCount++;
+            results.push(`${date}: ${defaultSlots} slots`);
+          }
+        }
+
+        return {
+          success: successCount > 0,
+          message:
+            successCount > 0
+              ? `Initialized inventory for ${successCount}/${
+                  dates.length
+                } dates: ${results.join(", ")}`
+              : "Failed to initialize any inventory",
+        };
+      } catch (error) {
+        return {
+          success: false,
+          message: `Error initializing inventory: ${error.message}`,
+        };
       }
     },
   },

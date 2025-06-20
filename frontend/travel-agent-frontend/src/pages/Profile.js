@@ -42,8 +42,9 @@ function Profile() {
     },
   });
 
+  // ✅ FIXED: Use correct mutation name
   const [updateProfile, { loading: updateLoading }] = useMutation(
-    MUTATIONS.UPDATE_PROFILE,
+    MUTATIONS.UPDATE_USER_PROFILE, // ✅ Changed from UPDATE_PROFILE
     {
       client: userService,
       onCompleted: (data) => {
@@ -53,6 +54,7 @@ function Profile() {
         setTimeout(() => setSuccess(""), 3000);
       },
       onError: (error) => {
+        console.error("Update profile error:", error);
         setError(error.message);
       },
     }
@@ -69,6 +71,7 @@ function Profile() {
   const handleEditClick = (e) => {
     e.preventDefault(); // Prevent form submission
     setIsEditing(true);
+    setError(""); // Clear errors when starting edit
   };
 
   const handleSubmit = async (e) => {
@@ -76,20 +79,47 @@ function Profile() {
     if (!isEditing) return; // Don't submit if not in edit mode
 
     setError("");
+
+    // ✅ Enhanced validation
+    if (!formData.name.trim()) {
+      setError("Name is required");
+      return;
+    }
+
+    if (!formData.email.trim()) {
+      setError("Email is required");
+      return;
+    }
+
+    if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
     try {
       await updateProfile({
         variables: {
           id: user.id,
           input: {
-            name: formData.name,
-            email: formData.email,
+            name: formData.name.trim(),
+            email: formData.email.trim(),
           },
         },
       });
     } catch (err) {
       console.error("Update error:", err);
-      setError(err.message);
+      setError(err.message || "Failed to update profile");
     }
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    setError("");
+    setSuccess("");
+    setFormData({
+      name: user?.name || "",
+      email: user?.email || "",
+    });
   };
 
   if (loading) {
@@ -127,12 +157,12 @@ function Profile() {
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.2 }}
         >
-          <Paper 
-            elevation={3} 
-            sx={{ 
+          <Paper
+            elevation={3}
+            sx={{
               p: 4,
               borderRadius: 2,
-              background: "linear-gradient(45deg, #ffffff 30%, #f5f5f5 90%)"
+              background: "linear-gradient(45deg, #ffffff 30%, #f5f5f5 90%)",
             }}
           >
             <Grid container spacing={4}>
@@ -149,10 +179,10 @@ function Profile() {
                       margin: "0 auto",
                       bgcolor: "primary.main",
                       fontSize: "3rem",
-                      boxShadow: 3
+                      boxShadow: 3,
                     }}
                   >
-                    {user?.name?.charAt(0).toUpperCase()}
+                    {user?.name?.charAt(0).toUpperCase() || "U"}
                   </Avatar>
                 </motion.div>
                 <motion.div
@@ -161,16 +191,16 @@ function Profile() {
                   transition={{ delay: 0.3 }}
                 >
                   <Typography variant="h5" sx={{ mt: 2, fontWeight: "bold" }}>
-                    {user?.name}
+                    {user?.name || "Unknown User"}
                   </Typography>
-                  <Typography 
+                  <Typography
                     color="primary"
-                    sx={{ 
+                    sx={{
                       textTransform: "capitalize",
-                      fontWeight: 500
+                      fontWeight: 500,
                     }}
                   >
-                    {user?.role}
+                    {user?.role || "user"}
                   </Typography>
                 </motion.div>
               </Grid>
@@ -200,9 +230,24 @@ function Profile() {
                   )}
 
                   {[
-                    { name: "name", label: "Full Name" },
-                    { name: "email", label: "Email Address" },
-                    { name: "role", label: "Role", disabled: true }
+                    {
+                      name: "name",
+                      label: "Full Name",
+                      type: "text",
+                      required: true,
+                    },
+                    {
+                      name: "email",
+                      label: "Email Address",
+                      type: "email",
+                      required: true,
+                    },
+                    {
+                      name: "role",
+                      label: "Role",
+                      disabled: true,
+                      value: user?.role,
+                    },
                   ].map((field, index) => (
                     <motion.div
                       key={field.name}
@@ -216,9 +261,30 @@ function Profile() {
                         id={field.name}
                         label={field.label}
                         name={field.name}
-                        value={field.name === "role" ? user?.role : formData[field.name]}
+                        type={field.type || "text"}
+                        value={field.value || formData[field.name] || ""}
                         onChange={handleChange}
                         disabled={!isEditing || field.disabled}
+                        required={field.required && isEditing}
+                        error={
+                          isEditing &&
+                          field.required &&
+                          !formData[field.name]?.trim()
+                        }
+                        helperText={
+                          isEditing &&
+                          field.required &&
+                          !formData[field.name]?.trim()
+                            ? `${field.label} is required`
+                            : ""
+                        }
+                        sx={{
+                          "& .MuiOutlinedInput-root": {
+                            "&.Mui-disabled": {
+                              backgroundColor: "grey.100",
+                            },
+                          },
+                        }}
                       />
                     </motion.div>
                   ))}
@@ -254,7 +320,14 @@ function Profile() {
                             fullWidth
                             sx={{ height: 48 }}
                           >
-                            {updateLoading ? "Saving..." : "Save Changes"}
+                            {updateLoading ? (
+                              <>
+                                <CircularProgress size={20} sx={{ mr: 1 }} />
+                                Saving...
+                              </>
+                            ) : (
+                              "Save Changes"
+                            )}
                           </Button>
                         </motion.div>
                         <motion.div
@@ -265,13 +338,8 @@ function Profile() {
                           <Button
                             type="button"
                             variant="outlined"
-                            onClick={() => {
-                              setIsEditing(false);
-                              setFormData({
-                                name: user?.name || "",
-                                email: user?.email || "",
-                              });
-                            }}
+                            onClick={handleCancel}
+                            disabled={updateLoading}
                             fullWidth
                             sx={{ height: 48 }}
                           >

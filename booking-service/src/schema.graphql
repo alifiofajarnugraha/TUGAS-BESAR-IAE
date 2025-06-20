@@ -1,18 +1,31 @@
 scalar Date
 
+# ✅ Enhanced types dengan tour information
 type Booking {
   id: ID!
   userId: ID!
   tourId: ID!
   status: BookingStatus!
-  departureDate: Date!
+  departureDate: String!
   participants: Int!
   totalCost: Float!
-  bookingDate: Date!
+  bookingDate: String!
   notes: String
   paymentStatus: PaymentStatus!
-  createdAt: Date!
-  updatedAt: Date!
+  createdAt: String!
+  updatedAt: String!
+  # ✅ ADD: Tour info untuk display purposes
+  tourInfo: TourInfo
+}
+
+# ✅ ADD: Tour information type
+type TourInfo {
+  id: ID
+  name: String
+  location: String
+  duration: String
+  currency: String
+  priceAmount: Float
 }
 
 enum BookingStatus {
@@ -29,6 +42,7 @@ enum PaymentStatus {
   FAILED
 }
 
+# ✅ Enhanced BookingCalculation dengan tour info
 type BookingCalculation {
   basePrice: Float!
   participants: Int!
@@ -37,6 +51,8 @@ type BookingCalculation {
   discount: Float!
   totalCost: Float!
   breakdown: [CostBreakdown!]!
+  # ✅ ADD: Tour context untuk calculation
+  tourInfo: TourInfo
 }
 
 type CostBreakdown {
@@ -45,10 +61,21 @@ type CostBreakdown {
   quantity: Int
 }
 
+# ✅ Enhanced AvailabilityResult dengan tour info
+type AvailabilityResult {
+  available: Boolean!
+  message: String!
+  slotsLeft: Int
+  hotelAvailable: Boolean
+  transportAvailable: Boolean
+  # ✅ ADD: Tour context untuk availability
+  tourInfo: TourInfo
+}
+
 input BookingInput {
   userId: ID!
   tourId: ID!
-  departureDate: Date!
+  departureDate: String!
   participants: Int!
   notes: String
 }
@@ -64,12 +91,20 @@ type Query {
   getUserBookings(userId: ID!): [Booking!]!
   getAllBookings: [Booking!]!
   getBookingsByStatus(status: BookingStatus!): [Booking!]!
-  getBookingsByDateRange(startDate: Date!, endDate: Date!): [Booking!]!
+  getBookingsByDateRange(startDate: String!, endDate: String!): [Booking!]!
+
+  # ✅ Enhanced dengan real tour data integration
   calculateBookingCost(
     tourId: ID!
     participants: Int!
-    departureDate: Date!
+    departureDate: String!
   ): BookingCalculation!
+
+  checkAvailability(
+    tourId: ID!
+    date: String!
+    participants: Int!
+  ): AvailabilityResult!
 }
 
 type Mutation {

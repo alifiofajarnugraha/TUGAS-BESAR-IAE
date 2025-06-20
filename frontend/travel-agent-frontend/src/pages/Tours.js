@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useQuery } from "@apollo/client";
 import {
   Container,
@@ -21,6 +21,8 @@ import {
   CardActions,
   IconButton,
   Tooltip,
+  Badge,
+  Divider,
 } from "@mui/material";
 import {
   Search,
@@ -30,15 +32,18 @@ import {
   Star,
   Favorite,
   FavoriteBorder,
+  CalendarToday,
+  EventAvailable,
+  Inventory as InventoryIcon,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { tourService } from "../services/api";
+import { tourService, inventoryService, QUERIES } from "../services/api";
 import { gql } from "@apollo/client";
 
-// Simple query for Tours listing
-const GET_TOURS_LIST = gql`
-  query GetToursList {
+// ✅ FIXED: Use only existing queries from inventory service
+const GET_TOURS_WITH_INVENTORY = gql`
+  query GetToursWithInventory {
     getTourPackages {
       id
       name
@@ -59,8 +64,24 @@ const GET_TOURS_LIST = gql`
       }
       images
       status
-      maxParticipants
-      isAvailable
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+// ✅ FIXED: Use existing inventory query instead of non-existent summary
+const GET_ALL_INVENTORY_FOR_TOURS = gql`
+  query GetAllInventoryForTours {
+    getAllInventory {
+      id
+      tourId
+      date
+      slots
+      hotelAvailable
+      transportAvailable
+      createdAt
+      updatedAt
     }
   }
 `;
@@ -82,9 +103,27 @@ function Tours() {
   const [searchKeyword, setSearchKeyword] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [favorites, setFavorites] = useState(new Set());
+  const [availabilityFilter, setAvailabilityFilter] = useState("All");
+
+  // Date range for filtering (next 3 months)
+  const dateRange = useMemo(() => {
+    const today = new Date();
+    const endDate = new Date();
+    endDate.setMonth(today.getMonth() + 3);
+
+    return {
+      startDate: today.toISOString().split("T")[0],
+      endDate: endDate.toISOString().split("T")[0],
+    };
+  }, []);
 
   // Fetch tours data
-  const { loading, error, data, refetch } = useQuery(GET_TOURS_LIST, {
+  const {
+    loading: toursLoading,
+    error: toursError,
+    data: toursData,
+    refetch,
+  } = useQuery(GET_TOURS_WITH_INVENTORY, {
     client: tourService,
     fetchPolicy: "cache-and-network",
     errorPolicy: "all",
@@ -93,9 +132,96 @@ function Tours() {
     },
   });
 
-  // Filter tours based on search and category
-  const filteredTours = React.useMemo(() => {
-    let tours = data?.getTourPackages || [];
+  // ✅ FIXED: Fetch all inventory data and process on frontend
+  const {
+    loading: inventoryLoading,
+    error: inventoryError,
+    data: inventoryData,
+  } = useQuery(GET_ALL_INVENTORY_FOR_TOURS, {
+    client: inventoryService,
+    fetchPolicy: "cache-and-network",
+    errorPolicy: "all",
+    skip: !toursData?.getTourPackages?.length,
+    onError: (error) => {
+      console.error("Inventory query error:", error);
+    },
+  });
+
+  // ✅ FIXED: Process inventory data to create summary on frontend
+  const inventorySummaryByTour = useMemo(() => {
+    if (!inventoryData?.getAllInventory) return {};
+
+    const summary = {};
+    const today = dateRange.startDate;
+    const endDate = dateRange.endDate;
+
+    inventoryData.getAllInventory.forEach((inv) => {
+      // Filter by date range
+      if (inv.date >= today && inv.date <= endDate) {
+        if (!summary[inv.tourId]) {
+          summary[inv.tourId] = {
+            totalAvailableDays: 0,
+            totalSlots: 0,
+            nearestAvailableDate: null,
+            isAvailable: false,
+            availableDates: [],
+          };
+        }
+
+        const tourSummary = summary[inv.tourId];
+        tourSummary.totalAvailableDays++;
+        tourSummary.totalSlots += inv.slots;
+
+        if (inv.slots > 0) {
+          tourSummary.availableDates.push(inv);
+          tourSummary.isAvailable = true;
+
+          // Set nearest available date
+          if (
+            !tourSummary.nearestAvailableDate ||
+            inv.date < tourSummary.nearestAvailableDate
+          ) {
+            tourSummary.nearestAvailableDate = inv.date;
+          }
+        }
+      }
+    });
+
+    return summary;
+  }, [inventoryData, dateRange]);
+
+  // Combine tours data with inventory summary
+  const enhancedTours = useMemo(() => {
+    if (!toursData?.getTourPackages) return [];
+
+    const tours = toursData.getTourPackages;
+
+    return tours.map((tour) => {
+      const inventory = inventorySummaryByTour[tour.id] || {
+        totalAvailableDays: 0,
+        totalSlots: 0,
+        nearestAvailableDate: null,
+        isAvailable: false,
+        availableDates: [],
+      };
+
+      return {
+        ...tour,
+        inventory,
+      };
+    });
+  }, [toursData, inventorySummaryByTour]);
+
+  // Filter tours based on search, category, and availability
+  const filteredTours = useMemo(() => {
+    let tours = enhancedTours;
+
+    // Filter by availability
+    if (availabilityFilter === "Available") {
+      tours = tours.filter((tour) => tour.inventory.isAvailable);
+    } else if (availabilityFilter === "Sold Out") {
+      tours = tours.filter((tour) => !tour.inventory.isAvailable);
+    }
 
     // Filter by category
     if (selectedCategory !== "All") {
@@ -115,7 +241,7 @@ function Tours() {
     }
 
     return tours;
-  }, [data?.getTourPackages, selectedCategory, searchKeyword]);
+  }, [enhancedTours, selectedCategory, searchKeyword, availabilityFilter]);
 
   // Toggle favorite
   const toggleFavorite = (tourId) => {
@@ -139,6 +265,15 @@ function Tours() {
     }).format(amount);
   };
 
+  // Format date
+  const formatDate = (dateString) => {
+    if (!dateString) return "Not available";
+    return new Date(dateString).toLocaleDateString("id-ID", {
+      month: "short",
+      day: "numeric",
+    });
+  };
+
   // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -156,6 +291,9 @@ function Tours() {
       transition: { duration: 0.5 },
     },
   };
+
+  const loading = toursLoading || inventoryLoading;
+  const error = toursError || inventoryError;
 
   if (loading) {
     return (
@@ -204,7 +342,7 @@ function Tours() {
           Explore Tour Packages
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ mb: 4 }}>
-          Discover amazing destinations with our curated travel experiences
+          Discover amazing destinations with real-time availability
         </Typography>
 
         {/* Search and Filter Section */}
@@ -216,7 +354,7 @@ function Tours() {
             alignItems="center"
           >
             {/* Search Field */}
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
                 placeholder="Search tours, destinations..."
@@ -255,6 +393,23 @@ function Tours() {
                 </Select>
               </FormControl>
             </Grid>
+
+            {/* Availability Filter */}
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Availability</InputLabel>
+                <Select
+                  value={availabilityFilter}
+                  label="Availability"
+                  onChange={(e) => setAvailabilityFilter(e.target.value)}
+                  sx={{ borderRadius: 3 }}
+                >
+                  <MenuItem value="All">All Tours</MenuItem>
+                  <MenuItem value="Available">Available Now</MenuItem>
+                  <MenuItem value="Sold Out">Sold Out</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
           </Grid>
         </Box>
 
@@ -267,11 +422,17 @@ function Tours() {
             mb: 3,
           }}
         >
-          <Typography variant="body1" color="text.secondary">
-            {filteredTours.length} tour
-            {filteredTours.length !== 1 ? "s" : ""} found
-            {selectedCategory !== "All" && ` in ${selectedCategory}`}
-          </Typography>
+          <Box>
+            <Typography variant="body1" color="text.secondary">
+              {filteredTours.length} tour{filteredTours.length !== 1 ? "s" : ""}{" "}
+              found
+              {selectedCategory !== "All" && ` in ${selectedCategory}`}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {filteredTours.filter((t) => t.inventory.isAvailable).length}{" "}
+              available now
+            </Typography>
+          </Box>
 
           {/* Active Filters */}
           <Box sx={{ display: "flex", gap: 1 }}>
@@ -283,11 +444,19 @@ function Tours() {
                 variant="outlined"
               />
             )}
+            {availabilityFilter !== "All" && (
+              <Chip
+                label={availabilityFilter}
+                onDelete={() => setAvailabilityFilter("All")}
+                color="secondary"
+                variant="outlined"
+              />
+            )}
             {searchKeyword && (
               <Chip
                 label={`"${searchKeyword}"`}
                 onDelete={() => setSearchKeyword("")}
-                color="secondary"
+                color="info"
                 variant="outlined"
               />
             )}
@@ -376,15 +545,52 @@ function Tours() {
                       </IconButton>
 
                       {/* Availability Status */}
-                      {tour.isAvailable !== undefined && (
+                      <Box
+                        sx={{
+                          position: "absolute",
+                          bottom: 12,
+                          right: 12,
+                          display: "flex",
+                          gap: 1,
+                        }}
+                      >
+                        {tour.inventory.isAvailable ? (
+                          <Tooltip
+                            title={`${tour.inventory.totalSlots} slots available`}
+                          >
+                            <Badge
+                              badgeContent={tour.inventory.totalSlots}
+                              color="success"
+                            >
+                              <Chip
+                                label="Available"
+                                size="small"
+                                color="success"
+                                sx={{ fontWeight: 600 }}
+                              />
+                            </Badge>
+                          </Tooltip>
+                        ) : (
+                          <Chip
+                            label="Sold Out"
+                            size="small"
+                            color="error"
+                            sx={{ fontWeight: 600 }}
+                          />
+                        )}
+                      </Box>
+
+                      {/* Available Days Indicator */}
+                      {tour.inventory.totalAvailableDays > 0 && (
                         <Chip
-                          label={tour.isAvailable ? "Available" : "Sold Out"}
+                          icon={<CalendarToday />}
+                          label={`${tour.inventory.totalAvailableDays} days`}
                           size="small"
-                          color={tour.isAvailable ? "success" : "error"}
                           sx={{
                             position: "absolute",
                             bottom: 12,
-                            right: 12,
+                            left: 12,
+                            bgcolor: "rgba(255, 255, 255, 0.9)",
                             fontWeight: 600,
                           }}
                         />
@@ -457,13 +663,15 @@ function Tours() {
                           </Typography>
                         </Box>
 
+                        {/* Next Available Date */}
                         <Box
                           sx={{
                             display: "flex",
                             alignItems: "center",
+                            mb: 1,
                           }}
                         >
-                          <People
+                          <EventAvailable
                             sx={{
                               fontSize: 16,
                               color: "text.secondary",
@@ -471,10 +679,32 @@ function Tours() {
                             }}
                           />
                           <Typography variant="body2" color="text.secondary">
-                            Max {tour.maxParticipants} participants
+                            Next:{" "}
+                            {formatDate(tour.inventory.nearestAvailableDate)}
+                          </Typography>
+                        </Box>
+
+                        {/* Inventory Info */}
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                          }}
+                        >
+                          <InventoryIcon
+                            sx={{
+                              fontSize: 16,
+                              color: "text.secondary",
+                              mr: 1,
+                            }}
+                          />
+                          <Typography variant="body2" color="text.secondary">
+                            {tour.inventory.totalSlots} slots available
                           </Typography>
                         </Box>
                       </Box>
+
+                      <Divider sx={{ mb: 2 }} />
 
                       {/* Price */}
                       <Box
@@ -520,6 +750,7 @@ function Tours() {
                         fullWidth
                         variant="contained"
                         onClick={() => navigate(`/tours/${tour.id}`)}
+                        disabled={!tour.inventory.isAvailable}
                         sx={{
                           borderRadius: 2,
                           py: 1.2,
@@ -527,7 +758,9 @@ function Tours() {
                           textTransform: "none",
                         }}
                       >
-                        View Details
+                        {tour.inventory.isAvailable
+                          ? "View Details"
+                          : "View (Sold Out)"}
                       </Button>
                     </CardActions>
                   </Card>
@@ -554,6 +787,7 @@ function Tours() {
             onClick={() => {
               setSearchKeyword("");
               setSelectedCategory("All");
+              setAvailabilityFilter("All");
             }}
           >
             Clear Filters

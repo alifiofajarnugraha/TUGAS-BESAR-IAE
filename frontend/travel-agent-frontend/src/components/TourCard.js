@@ -94,7 +94,7 @@ function TourCard({ tour }) {
           <Box sx={{ display: "flex", alignItems: "center" }}>
             <People sx={{ fontSize: 16, color: "text.secondary", mr: 1 }} />
             <Typography variant="body2" color="text.secondary">
-              Max {tour.maxParticipants} people
+              Small group tour
             </Typography>
           </Box>
         </Box>

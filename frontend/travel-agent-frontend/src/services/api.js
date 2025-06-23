@@ -29,6 +29,10 @@ const SERVICES = {
     process.env.NODE_ENV === "production"
       ? "http://inventory-service:3005/graphql"
       : "http://localhost:3005/graphql",
+  TRAVEL:
+    process.env.NODE_ENV === "production"
+      ? "http://travel-service:4000/graphql"
+      : "http://localhost:4000/graphql",
 };
 
 // ✅ Enhanced Apollo Client creator
@@ -142,12 +146,13 @@ const createClient = (uri, serviceName) => {
   });
 };
 
-// ✅ Service client creation (NON-EXPORTED)
+// ✅ Service client creation (ADD travelService)
 const userService = createClient(SERVICES.USER, "UserService");
 const tourService = createClient(SERVICES.TOUR, "TourService");
 const bookingService = createClient(SERVICES.BOOKING, "BookingService");
 const paymentService = createClient(SERVICES.PAYMENT, "PaymentService");
 const inventoryService = createClient(SERVICES.INVENTORY, "InventoryService");
+const travelService = createClient(SERVICES.TRAVEL, "TravelService"); // ✅ ADD
 
 // ✅ Connection test functions
 export const testServiceConnections = async () => {
@@ -202,6 +207,21 @@ export const testServiceConnections = async () => {
     };
   } catch (error) {
     results.inventoryService = { status: "❌ Failed", error: error.message };
+  }
+
+  // ✅ ADD: Test Travel Service
+  try {
+    const travelResult = await travelService.query({
+      query: gql`
+        query TestTravelService {
+          __typename
+        }
+      `,
+      fetchPolicy: "no-cache",
+    });
+    results.travelService = { status: "✅ Connected", data: travelResult };
+  } catch (error) {
+    results.travelService = { status: "❌ Failed", error: error.message };
   }
 
   console.log("Service Connection Test Results:", results);
@@ -630,7 +650,97 @@ export const QUERIES = {
     }
   `,
 
-  // ... other queries remain same
+  // ✅ ADD: Travel Schedule Queries via Tour Service
+  GET_ALL_TRAVEL_SCHEDULES: gql`
+    query GetAllTravelSchedules {
+      getAllSchedules {
+        id
+        origin
+        destination
+        departureTime
+        arrivalTime
+        price
+        seatsAvailable
+        vehicleType
+      }
+    }
+  `,
+
+  // ✅ Alternative: If above doesn't work, try this simpler query
+  GET_TRAVEL_SCHEDULES_SIMPLE: gql`
+    query GetTravelSchedulesSimple {
+      getAllTravelSchedules {
+        id
+        origin
+        destination
+        departureTime
+        arrivalTime
+        price
+        seatsAvailable
+        vehicleType
+      }
+    }
+  `,
+
+  // ✅ ADD: Travel booking query
+  GET_TRAVEL_BOOKINGS: gql`
+    query GetTravelBookings {
+      getAllBookings {
+        id
+        passengerId
+        scheduleId
+        bookingTime
+        status
+      }
+    }
+  `,
+
+  GET_TRAVEL_HISTORIES: gql`
+    query GetTravelHistories {
+      getAllTravelHistories {
+        id
+        passengerId
+        scheduleId
+        completedAt
+        rating
+        review
+      }
+    }
+  `,
+
+  GET_PASSENGER_BOOKINGS: gql`
+    query GetPassengerBookings($passengerId: ID!) {
+      getPassengerBookings(passengerId: $passengerId) {
+        id
+        passengerId
+        scheduleId
+        bookingTime
+        status
+      }
+    }
+  `,
+
+  GET_RECOMMENDATIONS: gql`
+    query GetRecommendations($passengerId: ID!) {
+      getRecommendations(passengerId: $passengerId) {
+        id
+        passengerId
+        recommendedSchedules {
+          id
+          origin
+          destination
+          departureTime
+          arrivalTime
+          price
+          seatsAvailable
+          vehicleType
+        }
+        generatedAt
+      }
+    }
+  `,
+
+  // ...rest of existing queries...
 };
 
 // ✅ Updated GraphQL Mutations
@@ -1058,4 +1168,5 @@ export {
   bookingService,
   inventoryService,
   paymentService,
+  travelService, // ✅ ADD
 };

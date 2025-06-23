@@ -7,8 +7,7 @@ const { GraphQLScalarType, Kind } = require("graphql");
 const INVENTORY_SERVICE_URL =
   process.env.INVENTORY_SERVICE_URL || "http://inventory-service:3005/graphql";
 const TRAVEL_SCHEDULE_SERVICE_URL =
-  process.env.TRAVEL_SCHEDULE_SERVICE_URL ||
-  "http://travel-schedule-service:3006/graphql";
+  process.env.TRAVEL_SCHEDULE_SERVICE_URL || "http://localhost:4000/graphql";
 
 // ✅ Enhanced inventory service helper
 const callInventoryService = async (query, variables = {}) => {
@@ -352,13 +351,12 @@ const resolvers = {
           throw new Error(`Tour package with ID ${id} not found`);
         }
 
-        // Get travel options if origin provided
+        // ✅ FIXED: Use getAllSchedules instead of getTravelSchedulesByRoute
         let travelOptions = [];
         if (origin) {
-          const travelData = await callTravelScheduleService(
-            `
-            query GetTravelSchedulesByRoute($origin: String!, $destination: String!) {
-              getTravelSchedulesByRoute(origin: $origin, destination: $destination) {
+          const travelData = await callTravelScheduleService(`
+            query GetAllSchedules {
+              getAllSchedules {
                 id
                 origin
                 destination
@@ -369,10 +367,17 @@ const resolvers = {
                 vehicleType
               }
             }
-          `,
-            { origin, destination: tourPackage.location.city }
-          );
-          travelOptions = travelData?.getTravelSchedulesByRoute || [];
+          `);
+
+          if (travelData?.getAllSchedules) {
+            // Filter on frontend since travel-service doesn't have route-specific query
+            travelOptions = travelData.getAllSchedules.filter((schedule) =>
+              schedule.origin.toLowerCase().includes(origin.toLowerCase()) &&
+              schedule.destination
+                .toLowerCase()
+                .includes(tourPackage.location.city.toLowerCase())
+            );
+          }
         }
 
         return {
@@ -385,12 +390,12 @@ const resolvers = {
       }
     },
 
+    // ✅ FIXED: Update getAvailableTravelOptions
     getAvailableTravelOptions: async (_, { origin, destination }) => {
       try {
-        const travelData = await callTravelScheduleService(
-          `
-          query GetTravelSchedulesByRoute($origin: String!, $destination: String!) {
-            getTravelSchedulesByRoute(origin: $origin, destination: $destination) {
+        const travelData = await callTravelScheduleService(`
+          query GetAllSchedules {
+            getAllSchedules {
               id
               origin
               destination
@@ -401,13 +406,53 @@ const resolvers = {
               vehicleType
             }
           }
-        `,
-          { origin, destination }
+        `);
+
+        if (!travelData?.getAllSchedules) {
+          return [];
+        }
+
+        // Filter by route on frontend
+        const filteredSchedules = travelData.getAllSchedules.filter((schedule) =>
+          schedule.origin.toLowerCase().includes(origin.toLowerCase()) &&
+          schedule.destination.toLowerCase().includes(destination.toLowerCase())
         );
 
-        return travelData?.getTravelSchedulesByRoute || [];
+        return filteredSchedules;
       } catch (error) {
         console.error("Error getting travel options:", error);
+        return [];
+      }
+    },
+
+    // ✅ NEW: Add getAllTravelSchedules query
+    getAllTravelSchedules: async () => {
+      try {
+        console.log("🚌 Fetching all travel schedules from travel service");
+
+        const travelData = await callTravelScheduleService(`
+          query GetAllSchedules {
+            getAllSchedules {
+              id
+              origin
+              destination
+              departureTime
+              arrivalTime
+              price
+              seatsAvailable
+              vehicleType
+            }
+          }
+        `);
+
+        if (!travelData?.getAllSchedules) {
+          console.warn("No travel schedules found");
+          return [];
+        }
+
+        return travelData.getAllSchedules;
+      } catch (error) {
+        console.error("Error fetching travel schedules:", error);
         return [];
       }
     },

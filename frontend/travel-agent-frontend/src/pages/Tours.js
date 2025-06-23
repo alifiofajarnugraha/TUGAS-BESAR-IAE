@@ -35,10 +35,18 @@ import {
   CalendarToday,
   EventAvailable,
   Inventory as InventoryIcon,
+  DirectionsBus,
+  FlightTakeoff,
+  AccessTime,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { tourService, inventoryService, QUERIES } from "../services/api";
+import {
+  tourService,
+  inventoryService,
+  travelService,
+  QUERIES,
+} from "../services/api";
 import { gql } from "@apollo/client";
 
 // ✅ FIXED: Use only existing queries from inventory service
@@ -86,6 +94,22 @@ const GET_ALL_INVENTORY_FOR_TOURS = gql`
   }
 `;
 
+// ✅ FIXED: Use correct query field from resolver
+const GET_ALL_TRAVEL_SCHEDULES = gql`
+  query GetAllTravelSchedules {
+    getAllSchedules {
+      id
+      origin
+      destination
+      departureTime
+      arrivalTime
+      price
+      seatsAvailable
+      vehicleType
+    }
+  }
+`;
+
 // Categories for filtering
 const TOUR_CATEGORIES = [
   "All",
@@ -104,6 +128,7 @@ function Tours() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [favorites, setFavorites] = useState(new Set());
   const [availabilityFilter, setAvailabilityFilter] = useState("All");
+  const [showTravelSchedules, setShowTravelSchedules] = useState(false);
 
   // Date range for filtering (next 3 months)
   const dateRange = useMemo(() => {
@@ -146,6 +171,27 @@ function Tours() {
       console.error("Inventory query error:", error);
     },
   });
+
+  // ✅ ADD: Fetch travel schedules data
+  const {
+    loading: travelLoading,
+    error: travelError,
+    data: travelData,
+  } = useQuery(GET_ALL_TRAVEL_SCHEDULES, {
+    client: travelService,
+    fetchPolicy: "cache-and-network",
+    errorPolicy: "all",
+    skip: !showTravelSchedules,
+    onError: (error) => {
+      console.error("Travel schedules query error:", error);
+    },
+  });
+
+  // ✅ MOVED: Process travel data BEFORE early returns
+  const travelSchedules = useMemo(() => {
+    if (!travelData) return [];
+    return travelData.getAllSchedules || [];
+  }, [travelData]);
 
   // ✅ FIXED: Process inventory data to create summary on frontend
   const inventorySummaryByTour = useMemo(() => {
@@ -243,6 +289,7 @@ function Tours() {
     return tours;
   }, [enhancedTours, selectedCategory, searchKeyword, availabilityFilter]);
 
+  // ✅ MOVED: All other functions before early returns
   // Toggle favorite
   const toggleFavorite = (tourId) => {
     setFavorites((prev) => {
@@ -274,6 +321,18 @@ function Tours() {
     });
   };
 
+  // ✅ ADD: Format time function
+  const formatTime = (timeString) => {
+    try {
+      return new Date(timeString).toLocaleTimeString("id-ID", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return timeString;
+    }
+  };
+
   // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -292,6 +351,7 @@ function Tours() {
     },
   };
 
+  // ✅ NOW: Early returns can be safely placed here
   const loading = toursLoading || inventoryLoading;
   const error = toursError || inventoryError;
 
@@ -344,6 +404,18 @@ function Tours() {
         <Typography variant="h6" color="text.secondary" sx={{ mb: 4 }}>
           Discover amazing destinations with real-time availability
         </Typography>
+
+        {/* ✅ ADD: Toggle Travel Schedules Button */}
+        <Box sx={{ mb: 4 }}>
+          <Button
+            variant={showTravelSchedules ? "contained" : "outlined"}
+            startIcon={<DirectionsBus />}
+            onClick={() => setShowTravelSchedules(!showTravelSchedules)}
+            sx={{ mr: 2, borderRadius: 3 }}
+          >
+            {showTravelSchedules ? "Hide" : "Show"} Travel Schedules
+          </Button>
+        </Box>
 
         {/* Search and Filter Section */}
         <Box sx={{ mb: 4 }}>
@@ -463,6 +535,157 @@ function Tours() {
           </Box>
         </Box>
       </Box>
+
+      {/* ✅ FIXED: Travel Schedules Section with proper variable usage */}
+      {showTravelSchedules && (
+        <Box sx={{ mb: 6 }}>
+          <Typography
+            variant="h4"
+            sx={{
+              textAlign: "center",
+              mb: 4,
+              fontWeight: 700,
+              color: "#1a202c",
+            }}
+          >
+            Available Travel Schedules
+          </Typography>
+
+          {travelLoading ? (
+            <Box sx={{ textAlign: "center", py: 4 }}>
+              <CircularProgress />
+              <Typography sx={{ mt: 2 }}>
+                Loading travel schedules...
+              </Typography>
+            </Box>
+          ) : travelError ? (
+            <Alert severity="warning" sx={{ mb: 4 }}>
+              Travel schedules temporarily unavailable: {travelError.message}
+            </Alert>
+          ) : travelSchedules.length > 0 ? (
+            <Grid container spacing={3} sx={{ mb: 6 }}>
+              {travelSchedules.map((schedule, index) => (
+                <Grid item xs={12} md={6} lg={4} key={schedule.id}>
+                  <Card
+                    sx={{
+                      height: "100%",
+                      borderRadius: 3,
+                      boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+                      transition: "transform 0.3s ease",
+                      "&:hover": {
+                        transform: "translateY(-4px)",
+                      },
+                    }}
+                  >
+                    <CardContent sx={{ p: 3 }}>
+                      {/* Header */}
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          mb: 2,
+                        }}
+                      >
+                        <DirectionsBus
+                          sx={{ fontSize: 30, color: "#6366f1", mr: 1 }}
+                        />
+                        <Box>
+                          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                            {schedule.vehicleType}
+                          </Typography>
+                          <Chip
+                            label={`${schedule.seatsAvailable} seats`}
+                            size="small"
+                            color={
+                              schedule.seatsAvailable > 0 ? "success" : "error"
+                            }
+                          />
+                        </Box>
+                      </Box>
+
+                      {/* Route */}
+                      <Box sx={{ mb: 2 }}>
+                        <Typography
+                          variant="body1"
+                          sx={{ fontWeight: 600, mb: 1 }}
+                        >
+                          {schedule.origin} → {schedule.destination}
+                        </Typography>
+                      </Box>
+
+                      {/* Time */}
+                      <Box sx={{ mb: 3 }}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                          }}
+                        >
+                          <Box sx={{ textAlign: "center" }}>
+                            <Typography variant="body2" color="text.secondary">
+                              Departure
+                            </Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                              {formatTime(schedule.departureTime)}
+                            </Typography>
+                          </Box>
+                          <AccessTime sx={{ color: "#6366f1" }} />
+                          <Box sx={{ textAlign: "center" }}>
+                            <Typography variant="body2" color="text.secondary">
+                              Arrival
+                            </Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                              {formatTime(schedule.arrivalTime)}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Box>
+
+                      {/* Price */}
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          mb: 2,
+                        }}
+                      >
+                        <Typography
+                          variant="h5"
+                          sx={{ fontWeight: 700, color: "#10b981" }}
+                        >
+                          {formatPrice(schedule.price)}
+                        </Typography>
+                      </Box>
+
+                      {/* Book Button */}
+                      <Button
+                        fullWidth
+                        variant="contained"
+                        disabled={schedule.seatsAvailable === 0}
+                        sx={{
+                          py: 1.5,
+                          borderRadius: 2,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {schedule.seatsAvailable > 0
+                          ? "Select Transport"
+                          : "Sold Out"}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          ) : (
+            <Alert severity="info" sx={{ mb: 4 }}>
+              No travel schedules available at the moment.
+            </Alert>
+          )}
+        </Box>
+      )}
 
       {/* Tours Grid */}
       {filteredTours.length > 0 ? (

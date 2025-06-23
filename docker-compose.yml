@@ -37,12 +37,15 @@ services:
     environment:
       - NODE_ENV=production
       - MONGO_URI=mongodb://mongo-tour:27017/tourdb
-      - INVENTORY_SERVICE_URL=http://inventory-service:3005/graphql # ✅ ADD
+      - INVENTORY_SERVICE_URL=http://inventory-service:3005/graphql
+      - TRAVEL_SCHEDULE_SERVICE_URL=http://travel-service:4000/graphql # ✅ ADD
     depends_on:
       mongo-tour:
         condition: service_healthy
+      travel-service: # ✅ ADD DEPENDENCY
+        condition: service_healthy
     restart: unless-stopped
-    healthcheck: # ✅ ADD HEALTH CHECK
+    healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
       interval: 30s
       timeout: 10s
@@ -125,6 +128,70 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  # Travel Service (External Integration)
+  travel-service:
+    build: ./travel-service
+    ports:
+      - "4000:4000"
+    networks:
+      - travel-network
+    environment:
+      - NODE_ENV=production
+      - MAINDB_HOST=postgres-travel-main
+      - MAINDB_PORT=5432
+      - MAINDB_NAME=main_db
+      - MAINDB_USER=admin
+      - MAINDB_PASSWORD=admin
+      - TRAVELSCHEDULEDB_HOST=postgres-travel-schedule
+      - TRAVELSCHEDULEDB_PORT=5432
+      - TRAVELSCHEDULEDB_NAME=travelschedule_db
+      - TRAVELSCHEDULEDB_USER=admin
+      - TRAVELSCHEDULEDB_PASSWORD=admin
+      - BOOKINGDB_HOST=postgres-travel-booking
+      - BOOKINGDB_PORT=5432
+      - BOOKINGDB_NAME=booking_db
+      - BOOKINGDB_USER=admin
+      - BOOKINGDB_PASSWORD=admin
+      - TRAVELHISTORYDB_HOST=postgres-travel-history
+      - TRAVELHISTORYDB_PORT=5432
+      - TRAVELHISTORYDB_NAME=travelhistory_db
+      - TRAVELHISTORYDB_USER=admin
+      - TRAVELHISTORYDB_PASSWORD=admin
+      - REFUNDREQUESTDB_HOST=postgres-travel-refund
+      - REFUNDREQUESTDB_PORT=5432
+      - REFUNDREQUESTDB_NAME=refundrequest_db
+      - REFUNDREQUESTDB_USER=admin
+      - REFUNDREQUESTDB_PASSWORD=admin
+      - RECOMMENDATIONDB_HOST=postgres-travel-recommendation
+      - RECOMMENDATIONDB_PORT=5432
+      - RECOMMENDATIONDB_NAME=recommendation_db
+      - RECOMMENDATIONDB_USER=admin
+      - RECOMMENDATIONDB_PASSWORD=admin
+      # ✅ ADD: Seeding control
+      - SKIP_SEEDING=false # Set to true to skip seeding
+    depends_on:
+      postgres-travel-main:
+        condition: service_healthy
+      postgres-travel-schedule:
+        condition: service_healthy
+      postgres-travel-booking:
+        condition: service_healthy
+      postgres-travel-history:
+        condition: service_healthy
+      postgres-travel-refund:
+        condition: service_healthy
+      postgres-travel-recommendation:
+        condition: service_healthy
+    restart: unless-stopped
+    # ✅ FIXED: Use start script directly (Dockerfile CMD handles everything)
+    # command: ["./start.sh"]  # This is redundant as Dockerfile CMD already does this
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
 
   # Databases - Updated dengan proper health checks
   postgres-user:
@@ -228,6 +295,139 @@ services:
       retries: 3
       start_period: 30s
 
+  # Travel Service Databases
+  postgres-travel-main:
+    image: postgres:15-alpine
+    container_name: postgres-travel-main
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=main_db
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin
+    volumes:
+      - postgres_travel_main_data:/var/lib/postgresql/data
+      - ./travel-service/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - travel-network
+    ports:
+      - "5434:5432" # Avoid conflict with existing postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d main_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  postgres-travel-schedule:
+    image: postgres:15-alpine
+    container_name: postgres-travel-schedule
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=travelschedule_db
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin
+    volumes:
+      - postgres_travel_schedule_data:/var/lib/postgresql/data
+      - ./travel-service/db/init_travelschedule_db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - travel-network
+    ports:
+      - "5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d travelschedule_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  postgres-travel-booking:
+    image: postgres:15-alpine
+    container_name: postgres-travel-booking
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=booking_db
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin
+    volumes:
+      - postgres_travel_booking_data:/var/lib/postgresql/data
+      - ./travel-service/db/init_booking_db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - travel-network
+    ports:
+      - "5436:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d booking_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  postgres-travel-history:
+    image: postgres:15-alpine
+    container_name: postgres-travel-history
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=travelhistory_db
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin
+    volumes:
+      - postgres_travel_history_data:/var/lib/postgresql/data
+      - ./travel-service/db/init_travelhistory_db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - travel-network
+    ports:
+      - "5437:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d travelhistory_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  postgres-travel-refund:
+    image: postgres:15-alpine
+    container_name: postgres-travel-refund
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=refundrequest_db
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin
+    volumes:
+      - postgres_travel_refund_data:/var/lib/postgresql/data
+      - ./travel-service/db/init_refundrequest_db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - travel-network
+    ports:
+      - "5438:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d refundrequest_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  postgres-travel-recommendation:
+    image: postgres:15-alpine
+    container_name: postgres-travel-recommendation
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=recommendation_db
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin
+    volumes:
+      - postgres_travel_recommendation_data:/var/lib/postgresql/data
+      - ./travel-service/db/init_recommendation_db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - travel-network
+    ports:
+      - "5439:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d recommendation_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
 networks:
   travel-network:
     driver: bridge
@@ -238,3 +438,10 @@ volumes:
   mongo_tour_data:
   mongo_payment_data:
   mongo_inventory_data:
+  # Travel Service Volumes
+  postgres_travel_main_data:
+  postgres_travel_schedule_data:
+  postgres_travel_booking_data:
+  postgres_travel_history_data:
+  postgres_travel_refund_data:
+  postgres_travel_recommendation_data:

@@ -2,6 +2,9 @@ FROM node:18-alpine
 
 WORKDIR /app
 
+# ✅ Install PostgreSQL client for pg_isready and curl for health checks
+RUN apk add --no-cache postgresql-client curl
+
 # Copy package files
 COPY package*.json ./
 
@@ -14,7 +17,7 @@ COPY . .
 # Expose the port your app runs on
 EXPOSE 4000
 
-# Copy the start script
+# ✅ Copy and make scripts executable
 COPY start.sh ./
 RUN chmod +x ./start.sh
 

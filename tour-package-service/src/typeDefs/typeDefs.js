@@ -183,12 +183,13 @@ const typeDefs = gql`
     ): AvailabilityCheck!
     getTourInventoryStatus(tourId: ID!): [InventoryStatus!]!
 
-    # ✅ Travel-integrated queries
+    # ✅ FIXED: Travel integration queries
     getTourWithTravel(id: ID!, origin: String): TourPackage
     getAvailableTravelOptions(
       origin: String!
       destination: String!
     ): [TravelSchedule!]!
+    getAllTravelSchedules: [TravelSchedule!]! # ✅ ADD
   }
 
   type Mutation {

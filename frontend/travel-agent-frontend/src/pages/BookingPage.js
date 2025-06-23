@@ -79,6 +79,7 @@ import {
   QUERIES,
   MUTATIONS,
 } from "../services/api";
+import { useAuth } from "../context/AuthContext"; // ✅ ADD
 
 const steps = [
   "Tour Selection",
@@ -97,6 +98,7 @@ function BookingPage() {
   const { tourId } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { user, isAuthenticated } = useAuth(); // ✅ Use AuthContext
 
   // Get initial data from URL params (from TourDetail page)
   const initialDate = searchParams.get("date");
@@ -300,6 +302,13 @@ function BookingPage() {
     }
   }, [bookingData.date, bookingData.participants, tourId]);
 
+  // ✅ REDIRECT: If not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate("/login");
+    }
+  }, [isAuthenticated, navigate]);
+
   // ✅ Event handlers and helper functions
   const handleDateSelect = (date) => {
     setBookingData((prev) => ({
@@ -365,19 +374,21 @@ function BookingPage() {
       console.log("📝 Creating booking...");
       setError("");
 
-      const user = apiHelpers.getCurrentUser();
-      if (!user.id) {
+      // ✅ FIXED: Use authenticated user from AuthContext
+      if (!isAuthenticated || !user) {
         throw new Error("User not authenticated");
       }
 
-      // ✅ Get tour from existing tourData
+      const userId = String(user.id); // ✅ Use real user ID
+      console.log("👤 Creating booking for User ID:", userId);
+
       const tour = tourData?.getTourPackage;
       if (!tour) {
         throw new Error("Tour data not available");
       }
 
       const bookingInput = {
-        userId: user.id,
+        userId: userId, // ✅ Real user ID from AuthContext
         tourId: tourId,
         departureDate: bookingData.date.toISOString().split("T")[0],
         participants: parseInt(bookingData.participants),
@@ -404,8 +415,8 @@ function BookingPage() {
       console.log("💳 Creating payment for booking:", bookingId);
       setError("");
 
-      const user = apiHelpers.getCurrentUser();
-      if (!user.id) {
+      // ✅ FIXED: Use authenticated user from AuthContext
+      if (!isAuthenticated || !user) {
         throw new Error("User not authenticated");
       }
 
@@ -413,7 +424,7 @@ function BookingPage() {
         method: bookingData.paymentMethod,
         amount: parseFloat(bookingData.totalCost),
         bookingId: bookingId,
-        userId: user.id,
+        userId: user.id, // ✅ Real user ID from AuthContext
       };
 
       console.log("💳 Payment input:", paymentInput);

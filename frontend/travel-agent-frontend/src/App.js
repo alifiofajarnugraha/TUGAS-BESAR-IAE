@@ -27,6 +27,7 @@ import TourDetail from "./pages/TourDetail";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
 import TestCreateBookings from "./pages/TestCreateBookings";
+import BookingDetails from "./pages/BookingDetails"; // ✅ ADD
 
 const theme = createTheme({
   palette: {
@@ -146,6 +147,15 @@ function App() {
               path="/test-create-bookings"
               element={<TestCreateBookings />}
             />
+            <Route
+              path="/booking-details/:bookingId"
+              element={
+                <ProtectedRoute>
+                  <BookingDetails />
+                </ProtectedRoute>
+              }
+            />{" "}
+            {/* ✅ ADD: Route in Routes section */}
           </Routes>
           <Footer />
         </AuthProvider>

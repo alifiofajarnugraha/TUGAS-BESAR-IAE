@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@apollo/client";
+import { useAuth } from "../context/AuthContext";
 import {
   Container,
   Paper,
@@ -11,7 +12,6 @@ import {
   CardContent,
   Chip,
   Button,
-  Alert,
   CircularProgress,
   Dialog,
   DialogTitle,
@@ -22,122 +22,83 @@ import {
   List,
   ListItem,
   ListItemText,
-  Avatar,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Tabs,
   Tab,
   IconButton,
   Tooltip,
   Badge,
   LinearProgress,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableRow,
+  Alert,
 } from "@mui/material";
 import {
   CalendarToday,
-  LocationOn,
   Group,
   Cancel,
   CheckCircle,
   Pending,
   Payment,
   Refresh,
-  Print,
-  Download,
   Visibility,
-  Edit,
   ErrorOutline,
   Schedule,
   AttachMoney,
-  Person,
   Tour,
   Receipt,
+  CreditCard,
+  AccountBalanceWallet,
+  CheckCircleOutline,
 } from "@mui/icons-material";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   bookingService,
-  apiHelpers,
+  paymentService,
   QUERIES,
   MUTATIONS,
 } from "../services/api";
 
-// ✅ COMPLETE: Enhanced MyBookings with full debugging
-
 function MyBookings() {
   const navigate = useNavigate();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [currentTab, setCurrentTab] = useState(0);
   const [cancelDialog, setCancelDialog] = useState({
     open: false,
     booking: null,
   });
   const [cancelReason, setCancelReason] = useState("");
-  const [viewMode, setViewMode] = useState("cards"); // 'cards' or 'table'
-  const [debugInfo, setDebugInfo] = useState(null);
+  const [paymentDialog, setPaymentDialog] = useState({
+    open: false,
+    booking: null,
+  });
+  const [paymentMethod, setPaymentMethod] = useState("transfer");
+  const [paymentError, setPaymentError] = useState("");
+  const [paymentSuccess, setPaymentSuccess] = useState("");
 
-  // ✅ Get current user - enhanced error handling
-  const getCurrentUser = () => {
-    try {
-      const userStr = localStorage.getItem("user");
-      if (!userStr) {
-        // Use demo user if no user in localStorage
-        return {
-          id: "user123",
-          name: "Demo User",
-          email: "demo@example.com",
-        };
-      }
-      return JSON.parse(userStr);
-    } catch (error) {
-      console.error("Error parsing user data:", error);
-      return {
-        id: "user123",
-        name: "Demo User",
-        email: "demo@example.com",
-      };
-    }
-  };
-
-  const user = getCurrentUser();
-
-  // ✅ Debug service connection on mount
+  // ✅ REDIRECT: If not authenticated, redirect to login
   useEffect(() => {
-    const testConnection = async () => {
-      try {
-        console.log("🔍 Testing booking service...");
+    if (!authLoading && !isAuthenticated) {
+      navigate("/login");
+    }
+  }, [authLoading, isAuthenticated, navigate]);
 
-        const healthResponse = await fetch("http://localhost:3003/health");
-        const healthData = await healthResponse.json();
-
-        console.log("🏥 Health check:", healthData);
-        setDebugInfo((prev) => ({ ...prev, health: healthData }));
-      } catch (error) {
-        console.error("❌ Service not reachable:", error);
-        setDebugInfo((prev) => ({ ...prev, error: error.message }));
-      }
-    };
-
-    testConnection();
-  }, []);
-
-  // ✅ Enhanced query with better error handling
+  // ✅ CLEAN: Use real user ID from AuthContext without debug logging
   const { data, loading, error, refetch } = useQuery(
     QUERIES.GET_USER_BOOKINGS,
     {
-      variables: { userId: user.id },
+      variables: {
+        userId: String(user?.id),
+      },
       client: bookingService,
-      skip: !user.id,
-      fetchPolicy: "no-cache", // ✅ Force fresh data
-      onCompleted: (result) => {
-        console.log("✅ Query completed:", result);
-        setDebugInfo((prev) => ({ ...prev, queryResult: result }));
-      },
-      onError: (err) => {
-        console.error("❌ Query failed:", err);
-        setDebugInfo((prev) => ({ ...prev, queryError: err.message }));
-      },
+      skip: !user?.id,
+      fetchPolicy: "cache-and-network",
     }
   );
 
@@ -146,17 +107,98 @@ function MyBookings() {
     MUTATIONS.CANCEL_BOOKING,
     {
       client: bookingService,
-      onCompleted: (result) => {
-        console.log("✅ Booking cancelled:", result);
+      onCompleted: () => {
         setCancelDialog({ open: false, booking: null });
         setCancelReason("");
         refetch();
       },
       onError: (err) => {
-        console.error("❌ Cancel booking error:", err);
+        console.error("Cancel booking error:", err);
       },
     }
   );
+
+  // ✅ ADD: Create payment mutation
+  const [createPayment, { loading: creatingPayment }] = useMutation(
+    MUTATIONS.PROCESS_PAYMENT,
+    {
+      client: paymentService,
+      onCompleted: (data) => {
+        console.log("Payment created:", data.processPayment);
+        setPaymentSuccess(
+          `Payment created successfully! Invoice: ${data.processPayment.invoiceNumber}`
+        );
+        setPaymentError("");
+        setPaymentDialog({ open: false, booking: null });
+        refetch();
+      },
+      onError: (err) => {
+        console.error("Payment creation error:", err);
+        setPaymentError(`Failed to create payment: ${err.message}`);
+      },
+    }
+  );
+
+  // ✅ ADD: Complete payment mutation
+  const [completePayment, { loading: completingPayment }] = useMutation(
+    MUTATIONS.COMPLETE_PAYMENT,
+    {
+      client: paymentService,
+      onCompleted: (data) => {
+        console.log("Payment completed:", data.completePayment);
+        setPaymentSuccess(
+          "🎉 Payment completed successfully! Your booking is confirmed."
+        );
+        setPaymentError("");
+        setPaymentDialog({ open: false, booking: null });
+        refetch();
+      },
+      onError: (err) => {
+        console.error("Payment completion error:", err);
+        setPaymentError(`Failed to complete payment: ${err.message}`);
+      },
+    }
+  );
+
+  // ✅ Payment method options
+  const paymentMethods = [
+    { value: "transfer", label: "Bank Transfer", icon: <AttachMoney /> },
+    { value: "e-wallet", label: "E-Wallet", icon: <AccountBalanceWallet /> },
+    { value: "credit card", label: "Credit Card", icon: <CreditCard /> },
+  ];
+
+  // ✅ LOADING: Show loading while auth is loading
+  if (authLoading) {
+    return (
+      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Paper sx={{ p: 4, textAlign: "center" }}>
+          <CircularProgress sx={{ mb: 2 }} />
+          <Typography>Loading authentication...</Typography>
+        </Paper>
+      </Container>
+    );
+  }
+
+  // ✅ NOT AUTHENTICATED
+  if (!isAuthenticated || !user) {
+    return (
+      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Paper sx={{ p: 4, textAlign: "center" }}>
+          <ErrorOutline sx={{ fontSize: 64, color: "warning.main", mb: 2 }} />
+          <Typography variant="h5" gutterBottom>
+            Please log in to view your bookings
+          </Typography>
+          <Button
+            variant="contained"
+            onClick={() => navigate("/login")}
+            sx={{ mt: 2 }}
+          >
+            Go to Login
+          </Button>
+        </Paper>
+      </Container>
+    );
+  }
 
   const handleCancelBooking = async () => {
     if (!cancelDialog.booking) return;
@@ -173,7 +215,56 @@ function MyBookings() {
     }
   };
 
-  // ✅ Enhanced status color mapping
+  // ✅ ADD: Payment handlers
+  const handlePayNow = (booking) => {
+    setPaymentDialog({ open: true, booking });
+    setPaymentMethod("transfer");
+    setPaymentError("");
+    setPaymentSuccess("");
+  };
+
+  const handleCreatePayment = async () => {
+    if (!paymentDialog.booking) return;
+
+    try {
+      const booking = paymentDialog.booking;
+
+      const paymentInput = {
+        method: paymentMethod,
+        amount: parseFloat(booking.totalCost),
+        bookingId: booking.id,
+        userId: user.id,
+      };
+
+      await createPayment({
+        variables: {
+          input: paymentInput,
+        },
+      });
+    } catch (error) {
+      console.error("Payment creation failed:", error);
+    }
+  };
+
+  const handleCompletePayment = async (paymentId) => {
+    try {
+      await completePayment({
+        variables: { paymentId },
+      });
+    } catch (error) {
+      console.error("Payment completion failed:", error);
+    }
+  };
+
+  // ✅ ADD: View details handler
+  const handleViewDetails = (booking) => {
+    // Create a detailed booking info page or modal
+    navigate(`/booking-details/${booking.id}`, {
+      state: { booking },
+    });
+  };
+
+  // ✅ Status color mapping
   const getStatusColor = (status) => {
     const statusMap = {
       PENDING: "warning",
@@ -196,7 +287,7 @@ function MyBookings() {
     return statusMap[status] || statusMap.default;
   };
 
-  // ✅ Enhanced formatting functions
+  // ✅ Format functions
   const formatPrice = (amount) => {
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
@@ -294,38 +385,47 @@ function MyBookings() {
     );
   }
 
-  // ✅ Debug info panel
-  const showDebugInfo = process.env.NODE_ENV === "development";
-
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      {/* ✅ Debug Panel */}
-      {showDebugInfo && (
-        <Paper sx={{ p: 2, mb: 2, bgcolor: "grey.100" }}>
-          <Typography variant="h6">🔧 Debug Info</Typography>
-          <Typography variant="body2">
-            User ID: {user.id}
-            <br />
-            Loading: {loading ? "YES" : "NO"}
-            <br />
-            Error: {error?.message || "NONE"}
-            <br />
-            Data:{" "}
-            {data ? `${data?.getUserBookings?.length || 0} bookings` : "NONE"}
-            <br />
-            Service Health: {debugInfo?.health?.status || "UNKNOWN"}
-          </Typography>
-          <Button size="small" onClick={() => refetch()}>
-            Retry Query
-          </Button>
-        </Paper>
-      )}
-
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
       >
+        {/* ✅ Payment/Cancel Success Messages */}
+        <AnimatePresence>
+          {paymentSuccess && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              <Alert
+                severity="success"
+                sx={{ mb: 3 }}
+                onClose={() => setPaymentSuccess("")}
+              >
+                {paymentSuccess}
+              </Alert>
+            </motion.div>
+          )}
+          {paymentError && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              <Alert
+                severity="error"
+                sx={{ mb: 3 }}
+                onClose={() => setPaymentError("")}
+              >
+                {paymentError}
+              </Alert>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* ✅ Header Section */}
         <Paper
           sx={{
@@ -347,7 +447,7 @@ function MyBookings() {
                 My Bookings
               </Typography>
               <Typography variant="h6" sx={{ opacity: 0.9 }}>
-                Welcome back, {user.name}! Here are your travel bookings.
+                Welcome back, {user?.name}! Here are your travel bookings.
               </Typography>
             </Box>
             <Box sx={{ textAlign: "center" }}>
@@ -612,7 +712,7 @@ function MyBookings() {
                           </>
                         )}
 
-                        {/* ✅ Action Buttons */}
+                        {/* ✅ FIXED: Action Buttons with working handlers */}
                         <Box
                           sx={{
                             mt: 3,
@@ -642,11 +742,7 @@ function MyBookings() {
                                 variant="contained"
                                 color="primary"
                                 size="small"
-                                onClick={() =>
-                                  navigate(
-                                    `/booking/${booking.tourId}?bookingId=${booking.id}`
-                                  )
-                                }
+                                onClick={() => handlePayNow(booking)} // ✅ FIXED: Use handlePayNow
                                 startIcon={<Payment />}
                               >
                                 Pay Now
@@ -656,9 +752,7 @@ function MyBookings() {
                           <Button
                             variant="outlined"
                             size="small"
-                            onClick={() =>
-                              navigate(`/booking-details/${booking.id}`)
-                            }
+                            onClick={() => handleViewDetails(booking)} // ✅ FIXED: Use handleViewDetails
                             startIcon={<Visibility />}
                           >
                             View Details
@@ -684,7 +778,147 @@ function MyBookings() {
           </Grid>
         )}
 
-        {/* ✅ Cancel Booking Dialog */}
+        {/* ✅ ADD: Payment Modal Dialog */}
+        <Dialog
+          open={paymentDialog.open}
+          onClose={() => setPaymentDialog({ open: false, booking: null })}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Payment color="primary" />
+              Complete Payment
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            {paymentDialog.booking && (
+              <>
+                {/* Booking Summary */}
+                <Card sx={{ mb: 3, bgcolor: "primary.light" }}>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>
+                      Booking Summary
+                    </Typography>
+                    <Grid container spacing={2}>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" color="text.secondary">
+                          Booking ID
+                        </Typography>
+                        <Typography variant="body1" fontWeight="bold">
+                          #{paymentDialog.booking.id.slice(-8)}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" color="text.secondary">
+                          Tour ID
+                        </Typography>
+                        <Typography variant="body1" fontWeight="bold">
+                          {paymentDialog.booking.tourId}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" color="text.secondary">
+                          Departure Date
+                        </Typography>
+                        <Typography variant="body1">
+                          {formatDate(paymentDialog.booking.departureDate)}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" color="text.secondary">
+                          Participants
+                        </Typography>
+                        <Typography variant="body1">
+                          {paymentDialog.booking.participants} person
+                          {paymentDialog.booking.participants > 1 ? "s" : ""}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Typography variant="body2" color="text.secondary">
+                          Total Amount
+                        </Typography>
+                        <Typography
+                          variant="h5"
+                          color="primary"
+                          fontWeight="bold"
+                        >
+                          {formatPrice(paymentDialog.booking.totalCost)}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                  </CardContent>
+                </Card>
+
+                {/* Payment Method Selection */}
+                <Card sx={{ mb: 3 }}>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>
+                      Payment Method
+                    </Typography>
+                    <FormControl fullWidth>
+                      <InputLabel>Select Payment Method</InputLabel>
+                      <Select
+                        value={paymentMethod}
+                        label="Select Payment Method"
+                        onChange={(e) => setPaymentMethod(e.target.value)}
+                      >
+                        {paymentMethods.map((method) => (
+                          <MenuItem key={method.value} value={method.value}>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1,
+                              }}
+                            >
+                              {method.icon}
+                              {method.label}
+                            </Box>
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </CardContent>
+                </Card>
+
+                {/* Payment Instructions */}
+                <Alert severity="info">
+                  <Typography variant="body2">
+                    💡 <strong>Payment Instructions:</strong>
+                    <br />
+                    1. Click "Create Payment" to generate payment invoice
+                    <br />
+                    2. Complete the payment using your selected method
+                    <br />
+                    3. Your booking will be confirmed once payment is processed
+                  </Typography>
+                </Alert>
+              </>
+            )}
+          </DialogContent>
+          <DialogActions sx={{ p: 3 }}>
+            <Button
+              onClick={() => setPaymentDialog({ open: false, booking: null })}
+              variant="outlined"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreatePayment}
+              color="primary"
+              variant="contained"
+              disabled={creatingPayment}
+              startIcon={
+                creatingPayment ? <CircularProgress size={16} /> : <Payment />
+              }
+            >
+              {creatingPayment ? "Creating Payment..." : "Create Payment"}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* ✅ Cancel Booking Dialog (unchanged) */}
         <Dialog
           open={cancelDialog.open}
           onClose={() => setCancelDialog({ open: false, booking: null })}
@@ -692,13 +926,7 @@ function MyBookings() {
           fullWidth
         >
           <DialogTitle>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-              }}
-            >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <Cancel color="error" />
               Cancel Booking
             </Box>

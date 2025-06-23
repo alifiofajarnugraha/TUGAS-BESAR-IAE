@@ -66,6 +66,7 @@ const typeDefs = `
 
   type Mutation {
     processPayment(input: PaymentInput!): Payment!
+    completePayment(paymentId: ID!): Payment!
     updatePaymentStatus(paymentId: ID!, status: String!): PaymentUpdateResponse!
     generateInvoice(paymentId: ID!): Invoice!
     processRefund(paymentId: ID!, amount: Float): Payment!

@@ -75,6 +75,7 @@ import {
   bookingService,
   inventoryService,
   paymentService,
+  apiHelpers, // ✅ ADD: Import apiHelpers
   QUERIES,
   MUTATIONS,
 } from "../services/api";
@@ -241,6 +242,31 @@ function BookingPage() {
     }
   );
 
+  // ✅ Complete payment mutation
+  const [completePayment, { loading: completingPayment }] = useMutation(
+    MUTATIONS.COMPLETE_PAYMENT,
+    {
+      client: paymentService,
+      onCompleted: (data) => {
+        console.log("✅ Payment completed:", data.completePayment);
+        setCreatedPayment(data.completePayment);
+
+        if (data.completePayment.status === "completed") {
+          setSuccess(
+            "🎉 Payment completed successfully! Your booking is confirmed."
+          );
+          setActiveStep(3); // Move to confirmation step
+          setShowPaymentDialog(false);
+        }
+      },
+      onError: (err) => {
+        console.error("❌ Payment completion failed:", err);
+        const errorMessage = apiHelpers.handleMutationError(err);
+        setError(`Failed to complete payment: ${errorMessage}`);
+      },
+    }
+  );
+
   // ✅ Process inventory data
   const inventorySummary = useMemo(() => {
     if (!inventoryData?.getTourAvailabilityRange)
@@ -274,106 +300,394 @@ function BookingPage() {
     }
   }, [bookingData.date, bookingData.participants, tourId]);
 
-  // ✅ Event handlers
+  // ✅ Event handlers and helper functions
+  const handleDateSelect = (date) => {
+    setBookingData((prev) => ({
+      ...prev,
+      date: date,
+    }));
+  };
+
+  const handleBack = () => {
+    setActiveStep((prevStep) => Math.max(0, prevStep - 1));
+  };
+
+  const handleNext = () => {
+    if (activeStep === 1) {
+      // Validate before moving to step 2
+      if (!availabilityData?.available || !costCalculation) {
+        setError("Please check availability and ensure the tour is available");
+        return;
+      }
+      setActiveStep(2);
+    } else if (activeStep === 2) {
+      // Create booking and payment
+      handleCreateBooking();
+    }
+  };
+
+  const handleCompleteBooking = () => {
+    // Navigate to bookings page
+    navigate("/my-bookings");
+  };
+
+  // ✅ ADD: Missing handleCheckAvailability function
   const handleCheckAvailability = () => {
-    if (!bookingData.date || !bookingData.participants) {
-      setError("Please select date and number of participants");
+    if (!bookingData.date || !bookingData.participants || !tourId) {
+      console.log("⚠️ Missing required data for availability check:", {
+        date: !!bookingData.date,
+        participants: !!bookingData.participants,
+        tourId: !!tourId,
+      });
       return;
     }
 
-    setError("");
-    setAvailabilityData(null);
-    setCostCalculation(null);
+    console.log("🔍 Checking availability for:", {
+      tourId,
+      date: bookingData.date.toISOString().split("T")[0],
+      participants: bookingData.participants,
+    });
 
-    const formattedDate = bookingData.date.toISOString().split("T")[0];
+    setError(""); // Clear previous errors
 
     checkAvailability({
       variables: {
         tourId,
-        date: formattedDate,
+        date: bookingData.date.toISOString().split("T")[0],
         participants: parseInt(bookingData.participants),
       },
     });
   };
 
-  const handleCreatePayment = async (bookingId) => {
+  // ✅ Create booking function
+  const handleCreateBooking = async () => {
     try {
-      // Mock user for now - replace with actual auth
-      const user = { id: "user123" };
+      console.log("📝 Creating booking...");
+      setError("");
 
-      await createPayment({
-        variables: {
-          input: {
-            method: bookingData.paymentMethod,
-            amount: bookingData.totalCost,
-            bookingId: bookingId,
-            userId: user.id,
-          },
-        },
-      });
-    } catch (err) {
-      setError("Failed to create payment: " + err.message);
-    }
-  };
-
-  const handleNext = async () => {
-    if (activeStep === 1) {
-      // Validate date and participants
-      if (!bookingData.date || !bookingData.participants) {
-        setError("Please select date and number of participants");
-        return;
+      const user = apiHelpers.getCurrentUser();
+      if (!user.id) {
+        throw new Error("User not authenticated");
       }
 
-      // Check availability if not already checked
-      if (!availabilityData || !costCalculation) {
-        handleCheckAvailability();
-        return;
+      // ✅ Get tour from existing tourData
+      const tour = tourData?.getTourPackage;
+      if (!tour) {
+        throw new Error("Tour data not available");
       }
 
-      setActiveStep(2);
-    } else if (activeStep === 2) {
-      // Create booking
-      const user = { id: "user123" }; // Mock user
+      const bookingInput = {
+        userId: user.id,
+        tourId: tourId,
+        departureDate: bookingData.date.toISOString().split("T")[0],
+        participants: parseInt(bookingData.participants),
+        notes: bookingData.notes || `Booking for ${tour.name}`,
+      };
+
+      console.log("📝 Booking input:", bookingInput);
 
       await createBooking({
         variables: {
-          input: {
-            userId: user.id,
-            tourId,
-            departureDate: bookingData.date.toISOString().split("T")[0],
-            participants: parseInt(bookingData.participants),
-            notes: bookingData.notes,
-          },
+          input: bookingInput,
         },
       });
+    } catch (error) {
+      console.error("❌ Booking creation failed:", error);
+      const errorMessage = apiHelpers.handleMutationError(error);
+      setError(`Booking failed: ${errorMessage}`);
     }
   };
 
-  const handleBack = () => {
-    if (activeStep > 0) {
-      setActiveStep((prevStep) => prevStep - 1);
+  // ✅ Payment creation function (no changes needed)
+  const handleCreatePayment = async (bookingId) => {
+    try {
+      console.log("💳 Creating payment for booking:", bookingId);
       setError("");
+
+      const user = apiHelpers.getCurrentUser();
+      if (!user.id) {
+        throw new Error("User not authenticated");
+      }
+
+      const paymentInput = {
+        method: bookingData.paymentMethod,
+        amount: parseFloat(bookingData.totalCost),
+        bookingId: bookingId,
+        userId: user.id,
+      };
+
+      console.log("💳 Payment input:", paymentInput);
+
+      const response = await createPayment({
+        variables: {
+          input: paymentInput,
+        },
+      });
+
+      if (response.data?.processPayment) {
+        const payment = response.data.processPayment;
+        console.log("✅ Payment created successfully:", payment);
+
+        setCreatedPayment(payment);
+        setSuccess(
+          `Payment created successfully! Invoice: ${payment.invoiceNumber}`
+        );
+        setShowPaymentDialog(true);
+      } else {
+        throw new Error("No payment data returned from server");
+      }
+    } catch (error) {
+      console.error("❌ Payment creation failed:", error);
+      const errorMessage = apiHelpers.handleMutationError(error);
+      setError(`Payment failed: ${errorMessage}`);
+      setSuccess("");
     }
   };
 
-  const handleDateSelect = (selectedDate) => {
-    setBookingData((prev) => ({ ...prev, date: selectedDate }));
-    setError("");
-    setAvailabilityData(null);
-    setCostCalculation(null);
+  // ✅ Manual payment completion handler
+  const handleCompletePaymentNow = async () => {
+    if (!createdPayment) {
+      setError("No payment found to complete");
+      return;
+    }
+
+    try {
+      console.log("🔄 Completing payment:", createdPayment.id);
+      setError(""); // Clear any existing errors
+
+      await completePayment({
+        variables: { paymentId: createdPayment.id },
+      });
+
+      // The onCompleted callback in the mutation will handle the UI updates
+    } catch (error) {
+      console.error("❌ Payment completion failed:", error);
+      const errorMessage = apiHelpers.handleMutationError(error);
+      setError(`Failed to complete payment: ${errorMessage}`);
+    }
   };
 
-  const handleCompleteBooking = () => {
-    setShowPaymentDialog(false);
-    navigate("/my-bookings", {
-      state: {
-        success: true,
-        message: "Booking completed successfully!",
-        bookingId: createdBooking?.id,
-        paymentId: createdPayment?.id,
-      },
-    });
+  // ✅ Payment confirmation display with completion button
+  const renderPaymentConfirmation = () => {
+    if (!createdPayment) return null;
+
+    return (
+      <Card
+        sx={{
+          mt: 2,
+          p: 2,
+          bgcolor:
+            createdPayment.status === "completed"
+              ? "success.light"
+              : "warning.light",
+        }}
+      >
+        <Typography variant="h6" gutterBottom>
+          {createdPayment.status === "completed"
+            ? "✅ Payment Completed"
+            : "⏳ Payment Pending"}
+        </Typography>
+
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={6}>
+            <Typography variant="body2" color="text.secondary">
+              Payment ID
+            </Typography>
+            <Typography variant="body1" fontWeight="bold">
+              {createdPayment.id}
+            </Typography>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <Typography variant="body2" color="text.secondary">
+              Invoice Number
+            </Typography>
+            <Typography variant="body1" fontWeight="bold">
+              {createdPayment.invoiceNumber}
+            </Typography>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <Typography variant="body2" color="text.secondary">
+              Payment Method
+            </Typography>
+            <Typography variant="body1">
+              {paymentMethods.find((m) => m.value === createdPayment.method)
+                ?.label || createdPayment.method}
+            </Typography>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <Typography variant="body2" color="text.secondary">
+              Amount
+            </Typography>
+            <Typography variant="body1" color="primary" fontWeight="bold">
+              {formatPrice(createdPayment.amount)}
+            </Typography>
+          </Grid>
+          <Grid item xs={12}>
+            <Typography variant="body2" color="text.secondary">
+              Status
+            </Typography>
+            <Chip
+              label={createdPayment.status.toUpperCase()}
+              color={
+                createdPayment.status === "completed" ? "success" : "warning"
+              }
+              size="medium"
+              sx={{ fontWeight: 600 }}
+            />
+          </Grid>
+        </Grid>
+
+        {/* ✅ ENHANCED: Action section for pending payments */}
+        {createdPayment.status === "pending" && (
+          <Box sx={{ mt: 3, textAlign: "center" }}>
+            <Alert severity="info" sx={{ mb: 2 }}>
+              <Typography variant="body2">
+                💡 <strong>Ready to Complete Payment?</strong>
+                <br />
+                Your booking is ready! Click the button below to process your
+                payment and confirm your booking instantly.
+              </Typography>
+            </Alert>
+          </Box>
+        )}
+
+        {/* ✅ SUCCESS: Message for completed payments */}
+        {createdPayment.status === "completed" && (
+          <Alert severity="success" sx={{ mt: 2 }}>
+            <Typography variant="body2">
+              🎉 <strong>Payment Successful!</strong>
+              <br />
+              Your booking has been confirmed! You will receive a confirmation
+              email shortly with all the details.
+              <br />
+              Thank you for choosing our service!
+            </Typography>
+          </Alert>
+        )}
+      </Card>
+    );
   };
+
+  // ✅ FIXED: Update renderPaymentDialog di BookingPage.js
+
+  const renderPaymentDialog = () => (
+    <Dialog
+      open={showPaymentDialog}
+      onClose={() => setShowPaymentDialog(false)}
+      maxWidth="md"
+      fullWidth
+    >
+      <DialogTitle>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <PaymentIcon />
+          {createdPayment?.status === "completed"
+            ? "Payment Successful"
+            : "Complete Your Payment"}
+        </Box>
+      </DialogTitle>
+
+      <DialogContent>
+        {/* ✅ UPDATED: Payment confirmation display */}
+        {renderPaymentConfirmation()}
+
+        {/* ✅ ENHANCED: Success message for completed payments */}
+        {createdPayment && createdPayment.status === "completed" && (
+          <Card
+            sx={{
+              mt: 2,
+              bgcolor: "success.light",
+              border: "2px solid",
+              borderColor: "success.main",
+            }}
+          >
+            <CardContent sx={{ textAlign: "center" }}>
+              <CheckCircleOutline
+                sx={{ fontSize: 64, color: "success.main", mb: 2 }}
+              />
+              <Typography variant="h4" gutterBottom color="success.dark">
+                🎉 Payment Successful!
+              </Typography>
+              <Typography variant="body1" color="success.dark" sx={{ mb: 2 }}>
+                Your booking has been confirmed successfully!
+              </Typography>
+
+              <Divider sx={{ my: 2 }} />
+
+              <Grid container spacing={2} sx={{ mb: 2 }}>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="text.secondary">
+                    Booking ID
+                  </Typography>
+                  <Typography variant="h6" color="success.dark">
+                    {createdBooking?.id}
+                  </Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="text.secondary">
+                    Payment ID
+                  </Typography>
+                  <Typography variant="h6" color="success.dark">
+                    {createdPayment.id}
+                  </Typography>
+                </Grid>
+              </Grid>
+
+              <Alert severity="success" sx={{ mt: 2 }}>
+                <Typography variant="body2">
+                  📧 A confirmation email has been sent to your email address
+                  with all booking details.
+                  <br />
+                  💼 You can view and manage your booking in "My Bookings"
+                  section.
+                </Typography>
+              </Alert>
+            </CardContent>
+          </Card>
+        )}
+      </DialogContent>
+
+      <DialogActions sx={{ p: 2 }}>
+        {createdPayment?.status === "completed" ? (
+          // ✅ Actions for completed payment
+          <>
+            <Button onClick={() => setShowPaymentDialog(false)} size="large">
+              Close
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleCompleteBooking}
+              size="large"
+            >
+              View My Bookings
+            </Button>
+          </>
+        ) : (
+          // ✅ Actions for pending payment
+          <>
+            <Button onClick={() => setShowPaymentDialog(false)} size="large">
+              I'll Pay Later
+            </Button>
+            <Button
+              variant="contained"
+              color="success"
+              onClick={handleCompletePaymentNow}
+              disabled={completingPayment}
+              size="large"
+              startIcon={
+                completingPayment ? (
+                  <CircularProgress size={16} />
+                ) : (
+                  <PaymentIcon />
+                )
+              }
+            >
+              {completingPayment ? "Processing..." : "Complete Payment"}
+            </Button>
+          </>
+        )}
+      </DialogActions>
+    </Dialog>
+  );
 
   // ✅ Format functions
   const formatPrice = (amount) => {
@@ -1261,71 +1575,7 @@ function BookingPage() {
               </Box>
             )}
           </Paper>
-
-          {/* Payment Instructions Dialog */}
-          <Dialog
-            open={showPaymentDialog}
-            onClose={() => setShowPaymentDialog(false)}
-            maxWidth="md"
-            fullWidth
-          >
-            <DialogTitle>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <PaymentIcon />
-                Payment Instructions
-              </Box>
-            </DialogTitle>
-            <DialogContent>
-              {createdPayment && (
-                <Card>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>
-                      Payment Details
-                    </Typography>
-                    <Typography variant="body1" sx={{ mb: 1 }}>
-                      <strong>Invoice Number:</strong>{" "}
-                      {createdPayment.invoiceNumber}
-                    </Typography>
-                    <Typography variant="body1" sx={{ mb: 1 }}>
-                      <strong>Amount:</strong>{" "}
-                      {formatPrice(createdPayment.amount)}
-                    </Typography>
-                    <Typography variant="body1" sx={{ mb: 1 }}>
-                      <strong>Payment Method:</strong>{" "}
-                      {
-                        paymentMethods.find(
-                          (m) => m.value === createdPayment.method
-                        )?.label
-                      }
-                    </Typography>
-                    <Typography variant="body1" sx={{ mb: 2 }}>
-                      <strong>Status:</strong>
-                      <Chip
-                        label={createdPayment.status}
-                        color="warning"
-                        size="small"
-                        sx={{ ml: 1 }}
-                      />
-                    </Typography>
-
-                    <Alert severity="info" sx={{ mt: 2 }}>
-                      Payment instructions have been sent to your email. Please
-                      complete the payment within 24 hours to secure your
-                      booking.
-                    </Alert>
-                  </CardContent>
-                </Card>
-              )}
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setShowPaymentDialog(false)}>
-                I'll Pay Later
-              </Button>
-              <Button variant="contained" onClick={handleCompleteBooking}>
-                View My Bookings
-              </Button>
-            </DialogActions>
-          </Dialog>
+          {renderPaymentDialog()}
         </motion.div>
       </Container>
     </LocalizationProvider>

@@ -26,6 +26,7 @@ import AdminBookings from "./pages/admin/AdminBookings";
 import TourDetail from "./pages/TourDetail";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
+import TestCreateBookings from "./pages/TestCreateBookings";
 
 const theme = createTheme({
   palette: {
@@ -141,6 +142,10 @@ function App() {
             />
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
+            <Route
+              path="/test-create-bookings"
+              element={<TestCreateBookings />}
+            />
           </Routes>
           <Footer />
         </AuthProvider>

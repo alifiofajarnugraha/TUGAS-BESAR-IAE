@@ -142,15 +142,12 @@ const createClient = (uri, serviceName) => {
   });
 };
 
-// ✅ Export service clients with service names
-export const userService = createClient(SERVICES.USER, "UserService");
-export const tourService = createClient(SERVICES.TOUR, "TourService");
-export const bookingService = createClient(SERVICES.BOOKING, "BookingService");
-export const paymentService = createClient(SERVICES.PAYMENT, "PaymentService");
-export const inventoryService = createClient(
-  SERVICES.INVENTORY,
-  "InventoryService"
-);
+// ✅ Service client creation (NON-EXPORTED)
+const userService = createClient(SERVICES.USER, "UserService");
+const tourService = createClient(SERVICES.TOUR, "TourService");
+const bookingService = createClient(SERVICES.BOOKING, "BookingService");
+const paymentService = createClient(SERVICES.PAYMENT, "PaymentService");
+const inventoryService = createClient(SERVICES.INVENTORY, "InventoryService");
 
 // ✅ Connection test functions
 export const testServiceConnections = async () => {
@@ -588,60 +585,52 @@ export const QUERIES = {
     query GetPayment($id: ID!) {
       getPayment(id: $id) {
         id
-        paymentMethod
+        method # ✅ FIXED: method instead of paymentMethod
         amount
         status
+        invoiceNumber # ✅ FIXED: invoiceNumber instead of nested invoiceDetails
         bookingId
         userId
-        invoiceDetails {
-          invoiceNumber
-          dateIssued
-          dueDate
-        }
         createdAt
         updatedAt
       }
     }
   `,
 
-  GET_USER_PAYMENTS: gql`
-    query GetUserPayments($userId: ID!) {
-      getUserPayments(userId: $userId) {
+  GET_PAYMENTS_BY_BOOKING: gql`
+    query GetPaymentsByBooking($bookingId: String!) {
+      getPaymentsByBooking(bookingId: $bookingId) {
         id
-        paymentMethod
+        method # ✅ FIXED
         amount
         status
+        invoiceNumber # ✅ FIXED
         bookingId
-        invoiceDetails {
-          invoiceNumber
-          dateIssued
-          dueDate
-        }
+        userId
         createdAt
         updatedAt
       }
     }
   `,
 
-  GET_ALL_PAYMENTS: gql`
-    query GetAllPayments {
-      getAllPayments {
+  LIST_PAYMENTS: gql`
+    query ListPayments {
+      listPayments {
         id
-        paymentMethod
+        method # ✅ FIXED
         amount
         status
+        invoiceNumber # ✅ FIXED
         bookingId
         userId
-        invoiceDetails {
-          invoiceNumber
-          dateIssued
-          dueDate
-        }
+        travelScheduleId
         createdAt
         updatedAt
       }
     }
   `,
+
+  // ... other queries remain same
 };
 
 // ✅ Updated GraphQL Mutations
@@ -848,7 +837,7 @@ export const MUTATIONS = {
 
   DELETE_TOUR_INVENTORY: gql`
     mutation DeleteTourInventory($tourId: ID!) {
-      deleteTour(tourId: $tourId) {
+      deleteTourInventory(tourId: $tourId) {
         success
         message
         deletedCount
@@ -932,95 +921,141 @@ export const MUTATIONS = {
     mutation ProcessPayment($input: PaymentInput!) {
       processPayment(input: $input) {
         id
-        paymentMethod
+        method
         amount
         status
+        invoiceNumber
         bookingId
         userId
-        invoiceNumber
+        travelScheduleId
         createdAt
+        updatedAt
       }
     }
   `,
 
-  UPDATE_PAYMENT_STATUS: gql`
-    mutation UpdatePaymentStatus($id: ID!, $status: String!) {
-      updatePaymentStatus(id: $id, status: $status) {
+  // ✅ ADD: Complete payment mutation
+  COMPLETE_PAYMENT: gql`
+    mutation CompletePayment($paymentId: ID!) {
+      completePayment(paymentId: $paymentId) {
         id
+        method
+        amount
         status
+        invoiceNumber
+        bookingId
+        userId
+        travelScheduleId
+        createdAt
         updatedAt
       }
     }
   `,
 };
 
-// ✅ Helper functions for frontend integration
+// ✅ ADD: apiHelpers implementation
 export const apiHelpers = {
-  // Format currency for display
-  formatCurrency: (amount, currency = "IDR") => {
+  // Mock user management - replace with real authentication later
+  getCurrentUser: () => {
+    // For now, return mock user
+    // TODO: Replace with real authentication system
+    return {
+      id: "user123",
+      email: "demo@example.com",
+      name: "Demo User",
+      role: "customer",
+    };
+  },
+
+  // Consistent error handling across the app
+  handleMutationError: (error) => {
+    console.error("GraphQL Error Details:", error);
+
+    // Network errors
+    if (error.networkError) {
+      console.error("Network Error:", error.networkError);
+
+      if (error.networkError.statusCode === 400) {
+        return "Bad request - please check your input data";
+      } else if (error.networkError.statusCode === 401) {
+        return "Authentication required - please log in";
+      } else if (error.networkError.statusCode === 403) {
+        return "Access forbidden - insufficient permissions";
+      } else if (error.networkError.statusCode === 404) {
+        return "Service not found - please try again later";
+      } else if (error.networkError.statusCode >= 500) {
+        return "Server error - please try again later";
+      }
+
+      return `Network error: ${
+        error.networkError.message || "Connection failed"
+      }`;
+    }
+
+    // GraphQL errors
+    if (error.graphQLErrors && error.graphQLErrors.length > 0) {
+      const graphQLError = error.graphQLErrors[0];
+      console.error("GraphQL Error:", graphQLError);
+
+      return graphQLError.message || "Server error occurred";
+    }
+
+    // Generic error
+    if (error.message) {
+      return error.message;
+    }
+
+    return "An unexpected error occurred";
+  },
+
+  // Format currency
+  formatCurrency: (amount) => {
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
-      currency: currency,
+      currency: "IDR",
+      minimumFractionDigits: 0,
     }).format(amount);
   },
 
-  // Format date for display
+  // Format date
   formatDate: (dateString) => {
     return new Date(dateString).toLocaleDateString("id-ID", {
+      weekday: "long",
       year: "numeric",
       month: "long",
       day: "numeric",
     });
   },
 
-  // Get status color for UI
-  getStatusColor: (status) => {
-    const colors = {
-      active: "success",
-      inactive: "error",
-      draft: "warning",
-      pending: "warning",
-      confirmed: "success",
-      cancelled: "error",
-      completed: "success",
-      failed: "error",
-    };
-    return colors[status] || "default";
-  },
+  // Validate form data
+  validateBookingData: (data) => {
+    const errors = [];
 
-  // Check if user is authenticated
-  isAuthenticated: () => {
-    return !!localStorage.getItem("token");
-  },
-
-  // Get current user from localStorage
-  getCurrentUser: () => {
-    try {
-      return JSON.parse(localStorage.getItem("user") || "{}");
-    } catch {
-      return {};
+    if (!data.date) {
+      errors.push("Departure date is required");
     }
-  },
 
-  // Logout helper
-  logout: () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    window.location.href = "/login";
-  },
+    if (!data.participants || data.participants < 1) {
+      errors.push("At least 1 participant is required");
+    }
 
-  // Error handler for mutations
-  handleMutationError: (error) => {
-    console.error("Mutation error:", error);
-    if (error.graphQLErrors?.length > 0) {
-      return error.graphQLErrors[0].message;
+    if (data.participants > 20) {
+      errors.push("Maximum 20 participants allowed");
     }
-    if (error.networkError) {
-      return "Network error. Please check your connection.";
+
+    if (!data.paymentMethod) {
+      errors.push("Payment method is required");
     }
-    return "An unexpected error occurred.";
+
+    return errors;
   },
 };
 
-// ✅ Export default client (tour service as main)
-export default tourService;
+// ✅ SINGLE EXPORT STATEMENT - Remove any other export statements above
+export {
+  userService,
+  tourService,
+  bookingService,
+  inventoryService,
+  paymentService,
+};
